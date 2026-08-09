@@ -45,7 +45,7 @@ class MonthlyReport extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->canViewCommissionReports() ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -74,6 +74,15 @@ class MonthlyReport extends Page
 
     public function saveMonthlyClosingDraft(): void
     {
+        if (! $this->canManageMonthlyClosing()) {
+            Notification::make()
+                ->title('Only admin can save monthly closing')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         $this->persistMonthlyClosing(MonthlyClosing::STATUS_DRAFT);
 
         Notification::make()
@@ -84,6 +93,15 @@ class MonthlyReport extends Page
 
     public function closeMonth(): void
     {
+        if (! $this->canManageMonthlyClosing()) {
+            Notification::make()
+                ->title('Only admin can close the month')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         $input = $this->monthlyClosingPreview();
 
         if (abs(((float) $input['rent_paid_amount'] + (float) $input['construction_deduction_amount']) - (float) $input['rent_total']) > 0.01) {
@@ -122,28 +140,52 @@ class MonthlyReport extends Page
     public function monthlyClosingPreview(): array
     {
         $month = Carbon::parse($this->month ?? today())->startOfMonth();
-        $rentTotal = $this->moneyNumber($this->rentTotal);
-        $rentPaid = $this->moneyNumber($this->rentPaidAmount);
-        $constructionDeduction = $this->moneyNumber($this->constructionDeductionAmount);
+        $closing = MonthlyClosing::forMonth($month);
+        $defaults = MonthlyClosing::defaultsForMonth($month);
+
+        if ($this->canManageMonthlyClosing()) {
+            $rentTotal = $this->moneyNumber($this->rentTotal);
+            $rentPaid = $this->moneyNumber($this->rentPaidAmount);
+            $rentPaidFrom = $this->rentPaidFrom ?: 'bank';
+            $constructionDeduction = $this->moneyNumber($this->constructionDeductionAmount);
+            $constructionReceived = $this->moneyNumber($this->constructionReceivedAmount);
+            $constructionAccount = $this->constructionAccountName ?: 'Construction deduction account';
+            $liabilitiesVerified = $this->liabilitiesVerified;
+            $notes = $this->closingNotes;
+        } else {
+            $rentTotal = $this->moneyNumber($closing?->rent_total ?? $defaults['rent_total']);
+            $rentPaid = $this->moneyNumber($closing?->rent_paid_amount ?? $defaults['rent_paid_amount']);
+            $rentPaidFrom = $closing?->rent_paid_from ?? $defaults['rent_paid_from'];
+            $constructionDeduction = $this->moneyNumber($closing?->construction_deduction_amount ?? $defaults['construction_deduction_amount']);
+            $constructionReceived = $this->moneyNumber($closing?->construction_received_amount ?? $defaults['construction_received_amount']);
+            $constructionAccount = $closing?->construction_account_name ?? $defaults['construction_account_name'];
+            $liabilitiesVerified = (bool) ($closing?->liabilities_verified ?? $defaults['liabilities_verified']);
+            $notes = $closing?->notes;
+        }
 
         return [
             'month' => $month->toDateString(),
             'rent_total' => $rentTotal,
             'rent_paid_amount' => $rentPaid,
-            'rent_paid_from' => $this->rentPaidFrom ?: 'bank',
+            'rent_paid_from' => $rentPaidFrom,
             'construction_deduction_amount' => $constructionDeduction,
-            'construction_received_amount' => $this->moneyNumber($this->constructionReceivedAmount),
-            'construction_account_name' => $this->constructionAccountName ?: 'Construction deduction account',
-            'construction_balance' => round(max(0, $constructionDeduction - $this->moneyNumber($this->constructionReceivedAmount)), 2),
-            'liabilities_verified' => $this->liabilitiesVerified,
-            'notes' => $this->closingNotes,
-            'status' => MonthlyClosing::forMonth($month)?->status ?? MonthlyClosing::STATUS_DRAFT,
+            'construction_received_amount' => $constructionReceived,
+            'construction_account_name' => $constructionAccount,
+            'construction_balance' => round(max(0, $constructionDeduction - $constructionReceived), 2),
+            'liabilities_verified' => $liabilitiesVerified,
+            'notes' => $notes,
+            'status' => $closing?->status ?? MonthlyClosing::STATUS_DRAFT,
         ];
     }
 
     public function isMonthClosed(): bool
     {
         return MonthlyClosing::forMonth($this->month ?? today())?->status === MonthlyClosing::STATUS_CLOSED;
+    }
+
+    public function canManageMonthlyClosing(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public function money(float|int|string|null $amount): string

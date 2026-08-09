@@ -3,6 +3,7 @@
     @php($commission = $report['staff_commission_totals'])
     @php($closing = $report['monthly_closing'])
     @php($monthClosed = $this->isMonthClosed())
+    @php($canManageMonthlyClosing = $this->canManageMonthlyClosing())
     @php($tableNumbers = $report['table_numbers'] ?? [1, 2, 3, 4])
     @php($rentSplitDifference = round((float) $closing['rent_total'] - (float) $closing['rent_paid_amount'] - (float) $closing['construction_deduction_amount'], 2))
 
@@ -34,7 +35,7 @@
             ['label' => 'Monthly commission to be paid', 'value' => $this->money($commission['monthly_commission_to_be_paid']), 'tone' => 'teal'],
             ['label' => 'Previous advance balance', 'value' => $this->money($report['staff_advance_carry_in']), 'tone' => 'amber'],
             ['label' => 'Staff paid deducted', 'value' => $this->money($report['staff_paid_total']), 'tone' => 'green'],
-            ['label' => 'Net payable / carry forward', 'value' => $this->money($report['staff_distribution_to_be_paid']), 'tone' => ((float) $report['staff_distribution_to_be_paid']) >= 0 ? 'green' : 'amber'],
+            ['label' => 'Net payable / carry forward', 'value' => $this->money($report['staff_distribution_to_be_paid']), 'tone' => 'green'],
         ] as $stat)
             <div class="summit-stat-card" data-tone="{{ $stat['tone'] }}">
                 <div class="summit-stat-label">{{ $stat['label'] }}</div>
@@ -59,15 +60,15 @@
         <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label class="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
                 Total rent
-                <input type="number" min="0" step="0.01" wire:model.live="rentTotal" @disabled($monthClosed) class="summit-date-input" />
+                <input type="number" min="0" step="0.01" wire:model.live="rentTotal" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input" />
             </label>
             <label class="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
                 Rent paid
-                <input type="number" min="0" step="0.01" wire:model.live="rentPaidAmount" @disabled($monthClosed) class="summit-date-input" />
+                <input type="number" min="0" step="0.01" wire:model.live="rentPaidAmount" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input" />
             </label>
             <label class="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
                 Paid from
-                <select wire:model.live="rentPaidFrom" @disabled($monthClosed) class="summit-date-input">
+                <select wire:model.live="rentPaidFrom" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input">
                     <option value="bank">Bank</option>
                     <option value="cash">Cash</option>
                     <option value="other_account">Other account</option>
@@ -75,23 +76,23 @@
             </label>
             <label class="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
                 Construction deduction
-                <input type="number" min="0" step="0.01" wire:model.live="constructionDeductionAmount" @disabled($monthClosed) class="summit-date-input" />
+                <input type="number" min="0" step="0.01" wire:model.live="constructionDeductionAmount" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input" />
             </label>
             <label class="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
                 Saved in other account
-                <input type="number" min="0" step="0.01" wire:model.live="constructionReceivedAmount" @disabled($monthClosed) class="summit-date-input" />
+                <input type="number" min="0" step="0.01" wire:model.live="constructionReceivedAmount" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input" />
             </label>
             <label class="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
                 Other account name
-                <input type="text" wire:model.live="constructionAccountName" @disabled($monthClosed) class="summit-date-input" />
+                <input type="text" wire:model.live="constructionAccountName" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input" />
             </label>
             <label class="flex items-center gap-2 pt-6 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                <input type="checkbox" wire:model.live="liabilitiesVerified" @disabled($monthClosed) class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-500" />
+                <input type="checkbox" wire:model.live="liabilitiesVerified" @disabled($monthClosed || ! $canManageMonthlyClosing) class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-500" />
                 Liabilities paid and verified
             </label>
             <label class="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
                 Closing notes
-                <input type="text" wire:model.live="closingNotes" @disabled($monthClosed) class="summit-date-input" />
+                <input type="text" wire:model.live="closingNotes" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input" />
             </label>
         </div>
 
@@ -104,14 +105,16 @@
             <div><dt>Rent source</dt><dd class="font-semibold">{{ ucfirst(str_replace('_', ' ', $closing['source'])) }}</dd></div>
         </dl>
 
-        <div class="mt-4 flex flex-wrap gap-3">
-            <button type="button" wire:click="saveMonthlyClosingDraft" @disabled($monthClosed) class="summit-print-button">
-                Save draft
-            </button>
-            <button type="button" wire:click="closeMonth" @disabled($monthClosed) class="summit-print-button">
-                Close month
-            </button>
-        </div>
+        @if ($canManageMonthlyClosing)
+            <div class="mt-4 flex flex-wrap gap-3">
+                <button type="button" wire:click="saveMonthlyClosingDraft" @disabled($monthClosed) class="summit-print-button">
+                    Save draft
+                </button>
+                <button type="button" wire:click="closeMonth" @disabled($monthClosed) class="summit-print-button">
+                    Close month
+                </button>
+            </div>
+        @endif
     </div>
 
     <div class="summit-panel bg-white dark:bg-gray-900">
@@ -209,7 +212,7 @@
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_paid_total']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['already_paid_this_month']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_advance_carry_in']) }}</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_distribution_to_be_paid']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($report['staff_distribution_to_be_paid']) }}</span></td>
                     </tr>
                 </tbody>
             </table>
@@ -263,12 +266,12 @@
                     <tr>
                         <td class="px-4 py-3">Net payable / carry forward</td>
                         <td class="px-4 py-3">Monthly commission + previous advance balance - staff paid deducted</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_distribution_to_be_paid']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($report['staff_distribution_to_be_paid']) }}</span></td>
                     </tr>
                     <tr>
                         <td class="px-4 py-3">Advance carried forward</td>
                         <td class="px-4 py-3">Only negative balances carry into the next month</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_advance_carry_forward']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($report['staff_advance_carry_forward']) }}</span></td>
                     </tr>
                 </tbody>
             </table>

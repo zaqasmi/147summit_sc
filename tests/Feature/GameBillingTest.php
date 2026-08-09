@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\DailyReport;
+use App\Filament\Pages\MonthlyReport;
+use App\Filament\Pages\YearlyReport;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\GameAddOns\GameAddOnResource;
 use App\Filament\Resources\GameParticipants\GameParticipantResource;
@@ -1884,6 +1886,8 @@ class GameBillingTest extends TestCase
         $this->assertFalse(ExpenseResource::canCreate());
         $this->assertFalse(ExpenseResource::canEdit($expense));
         $this->assertFalse(DailyReport::canAccess());
+        $this->assertTrue(MonthlyReport::canAccess());
+        $this->assertTrue(YearlyReport::canAccess());
 
         $this->actingAs($admin);
 
@@ -1898,5 +1902,7 @@ class GameBillingTest extends TestCase
         $this->assertTrue(ExpenseResource::canCreate());
         $this->assertTrue(ExpenseResource::canEdit($expense));
         $this->assertTrue(DailyReport::canAccess());
+        $this->assertTrue(MonthlyReport::canAccess());
+        $this->assertTrue(YearlyReport::canAccess());
     }
 }

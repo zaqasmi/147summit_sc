@@ -94,7 +94,7 @@
                         <th class="px-4 py-3 summit-money">Commission</th>
                         <th class="px-4 py-3 summit-money">Staff paid deducted</th>
                         <th class="px-4 py-3 summit-money">Advance carry</th>
-                        <th class="px-4 py-3 summit-money">To be paid</th>
+                        <th class="px-4 py-3 summit-money">Net payable / carry forward</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -115,7 +115,7 @@
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($month['commission_estimate']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($month['staff_paid_total']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($month['staff_advance_carry_in']) }}</td>
-                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($month['staff_distribution_to_be_paid']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($month['staff_distribution_to_be_paid']) }}</span></td>
                         </tr>
                     @endforeach
                     <tr>
@@ -133,8 +133,8 @@
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['collection_after_rent']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['commission_estimate']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_paid_total']) }}</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_advance_carry_forward']) }}</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_distribution_to_be_paid_total']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($report['staff_advance_carry_forward']) }}</span></td>
+                        <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($report['staff_distribution_to_be_paid_total']) }}</span></td>
                     </tr>
                 </tbody>
             </table>

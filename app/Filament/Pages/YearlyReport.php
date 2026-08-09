@@ -24,7 +24,7 @@ class YearlyReport extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->canViewCommissionReports() ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -42,11 +42,11 @@ class YearlyReport extends Page
      */
     public function report(): array
     {
-        return app(ReportService::class)->yearly(($this->year ?? today()->format('Y')) . '-01-01');
+        return app(ReportService::class)->yearly(($this->year ?? today()->format('Y')).'-01-01');
     }
 
     public function money(float|int|string|null $amount): string
     {
-        return 'Rs ' . number_format((float) $amount, 2);
+        return 'Rs '.number_format((float) $amount, 2);
     }
 }

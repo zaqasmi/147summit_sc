@@ -52,6 +52,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->isAdmin() || $this->isSaleManager();
     }
 
+    public function canViewCommissionReports(): bool
+    {
+        return $this->isAdmin() || $this->isSaleManager();
+    }
+
     /**
      * @return array<string, string>
      */
