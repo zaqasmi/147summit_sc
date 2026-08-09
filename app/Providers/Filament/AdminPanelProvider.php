@@ -2,11 +2,11 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Dashboard;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use App\Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -26,10 +26,15 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->brandName('147 Summit')
+            ->brandName('147 Summit Snooker Club')
+            ->brandLogo(asset('website-assets/147-summit-logo.jpeg'))
+            ->brandLogoHeight('3rem')
+            ->favicon(asset('website-assets/147-summit-logo.jpeg'))
             ->navigationGroups([
                 'Admin',
                 'Club Manager Operations',
+                'Tournament Management',
+                'Website CMS',
             ])
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->colors([
