@@ -40,6 +40,9 @@ class ReportService
 
         $manualDeposits = $deposits->where('closing_source', 'manual');
         $usesManualClosing = $manualDeposits->isNotEmpty();
+        $gameSessionClosingDeposits = $deposits->whereIn('closing_source', ['game_sessions', 'system']);
+        $usesGameSessionClosing = $gameSessionClosingDeposits->isNotEmpty();
+        $usesExplicitClosing = $usesManualClosing || $usesGameSessionClosing;
 
         $checkedOutSessionIds = GameSession::query()
             ->whereDate('checked_out_at', $day)
@@ -90,9 +93,12 @@ class ReportService
         $manualCustomerDuesAdded = $usesManualClosing
             ? $this->manualCustomerDuesTotal($manualDeposits)
             : 0.0;
-        $duesAdded = $usesManualClosing || $storedDuesAdded > 0
-            ? max($storedDuesAdded, $manualCustomerDuesAdded)
-            : $dueTotal;
+        $duesAdded = match (true) {
+            $usesManualClosing => max($storedDuesAdded, $manualCustomerDuesAdded),
+            $usesGameSessionClosing => max($storedDuesAdded, $dueTotal),
+            $storedDuesAdded > 0 => $storedDuesAdded,
+            default => $dueTotal,
+        };
         $duesRecovered = (float) $deposits->sum('dues_recovered');
         $salesTotal = max(0, $grossSalesTotal - $duesAdded + $duesRecovered);
 
@@ -113,12 +119,12 @@ class ReportService
         $dailyExpenseTotal = $expenseTotal;
 
         $amountCollectedFromStaff = (float) $deposits->sum('amount_collected_from_staff');
-        $manualCashAfterExpenseAndDue = $usesManualClosing
+        $closingCashAfterExpenseAndDue = $usesExplicitClosing
             ? max(0, $salesTotal - $expenseTotal)
             : 0.0;
 
         if ($usesManualClosing || $deposits->isNotEmpty()) {
-            $cashCollected = $usesManualClosing
+            $cashCollected = $usesExplicitClosing
                 ? max(0, $amountCollectedFromStaff)
                 : max(0, $salesTotal);
         } elseif ($duesRecovered > 0) {
@@ -153,8 +159,8 @@ class ReportService
                 ->latest('deposit_date')
                 ->value('petty_cash_kept'));
 
-        $expenseDeductedFromCounterCash = $usesManualClosing ? 0.0 : $expenseTotal;
-        $counterCashForExpected = $usesManualClosing ? $manualCashAfterExpenseAndDue : $cashCollected;
+        $expenseDeductedFromCounterCash = $usesExplicitClosing ? 0.0 : $expenseTotal;
+        $counterCashForExpected = $usesExplicitClosing ? $closingCashAfterExpenseAndDue : $cashCollected;
         $counterCashExpected = $openingPettyCash + $counterCashForExpected - $expenseDeductedFromCounterCash - $capitalInstallmentsPaidFromCounter;
         $counterCashCollected = (float) $deposits->sum('cash_collected_from_counter');
         $pettyCashKept = (float) $deposits->sum('petty_cash_kept');
@@ -173,11 +179,11 @@ class ReportService
 
         $expectedOwnerCollection = max(0, $counterCashExpected - $openingPettyCash - $pettyCashKept);
 
-        $capitalPaidFromCurrentClosing = $usesManualClosing
-            ? min($capitalInstallmentsPaidFromCounter, max(0, $manualCashAfterExpenseAndDue - $cashCollected))
+        $capitalPaidFromCurrentClosing = $usesExplicitClosing
+            ? min($capitalInstallmentsPaidFromCounter, max(0, $closingCashAfterExpenseAndDue - $cashCollected))
             : 0.0;
         $totalCollection = max(0, $cashCollected);
-        $netCashProfit = $usesManualClosing
+        $netCashProfit = $usesExplicitClosing
             ? $cashCollected + $capitalPaidFromCurrentClosing
             : $cashCollected - $expenseTotal;
         $overallCommissionRate = $this->overallStaffCommissionRate($day);
@@ -188,8 +194,10 @@ class ReportService
         $report = [
             'date' => $day,
             'table_sales' => $tableSales,
-            'closing_source' => $usesManualClosing ? 'manual' : 'system',
-            'source_label' => $usesManualClosing ? 'Manual register closing' : 'Game/payment records',
+            'closing_source' => $usesManualClosing ? 'manual' : ($usesGameSessionClosing ? 'game_sessions' : 'system'),
+            'source_label' => $usesManualClosing
+                ? 'Manual register closing'
+                : ($usesGameSessionClosing ? 'Checked-out game sessions closing' : 'Game/payment records'),
             'sessions_count' => $checkedOutSessionIds->count(),
             'frames_count' => (int) GameSession::query()
                 ->whereIn('id', $checkedOutSessionIds)

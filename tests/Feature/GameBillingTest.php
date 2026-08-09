@@ -370,6 +370,73 @@ class GameBillingTest extends TestCase
         $this->assertSame('375.00', $commission->balance_due);
     }
 
+    public function test_game_session_closing_uses_sessions_for_sales_and_closing_for_cash(): void
+    {
+        foreach ([1, 2, 3, 4] as $number) {
+            SnookerTable::create([
+                'number' => $number,
+                'name' => 'Table '.$number,
+                'hourly_rate' => 10,
+            ]);
+        }
+
+        $session = GameSession::create([
+            'snooker_table_id' => SnookerTable::query()->where('number', 2)->value('id'),
+            'game_type' => 'one_to_one',
+            'status' => 'checked_out',
+            'started_at' => Carbon::parse('2026-07-30 18:00:00'),
+            'ended_at' => Carbon::parse('2026-07-30 19:00:00'),
+            'checked_out_at' => Carbon::parse('2026-07-30 19:05:00'),
+            'frames_played' => 2,
+            'frame_fee' => 300,
+            'hourly_rate' => 10,
+        ]);
+
+        $loser = $session->participants()->create([
+            'player_name_snapshot' => 'Session loser',
+            'team' => 'solo',
+            'is_loser' => true,
+        ]);
+        $session->participants()->create([
+            'player_name_snapshot' => 'Session winner',
+            'team' => 'solo',
+        ]);
+
+        $loser->payments()->create([
+            'payment_date' => '2026-07-30',
+            'payment_method' => 'cash',
+            'amount' => 400,
+        ]);
+
+        $closing = CashDeposit::create([
+            'deposit_date' => '2026-07-30',
+            'closing_source' => 'game_sessions',
+            'amount_collected_from_staff' => 350,
+            'cash_collected_from_counter' => 350,
+        ]);
+
+        Expense::create([
+            'cash_deposit_id' => $closing->id,
+            'expense_date' => '2026-07-30',
+            'category' => 'General',
+            'description' => 'Counter expense',
+            'amount' => 50,
+            'paid_from' => 'cash',
+        ]);
+
+        $daily = app(ReportService::class)->daily('2026-07-30');
+
+        $this->assertSame('game_sessions', $daily['closing_source']);
+        $this->assertSame('Checked-out game sessions closing', $daily['source_label']);
+        $this->assertSame(600.0, $daily['gross_sales_total']);
+        $this->assertSame(600.0, (float) $daily['table_sales']->firstWhere('table.number', 2)['sales']);
+        $this->assertSame(200.0, $daily['dues_added']);
+        $this->assertSame(400.0, $daily['sales_total']);
+        $this->assertSame(50.0, $daily['expense_total']);
+        $this->assertSame(350.0, $daily['cash_collected']);
+        $this->assertSame(350.0, $daily['net_cash_profit']);
+    }
+
     public function test_staff_advance_can_be_split_between_all_active_staff(): void
     {
         $firstStaff = Staff::create([
@@ -1760,7 +1827,7 @@ class GameBillingTest extends TestCase
         $this->assertStringContainsString('Route PDF Customer', $response->getContent());
     }
 
-    public function test_sale_manager_is_read_only_for_operations(): void
+    public function test_sale_manager_can_manage_game_sessions_but_not_admin_operations(): void
     {
         $saleManager = User::create([
             'name' => 'Sale User',
@@ -1806,8 +1873,8 @@ class GameBillingTest extends TestCase
 
         $this->actingAs($saleManager);
 
-        $this->assertFalse(GameSessionResource::canCreate());
-        $this->assertFalse(GameSessionResource::canEdit($session));
+        $this->assertTrue(GameSessionResource::canCreate());
+        $this->assertTrue(GameSessionResource::canEdit($session));
         $this->assertFalse(GameSessionResource::canDelete($session));
         $this->assertFalse(GameParticipantResource::canCreate());
         $this->assertFalse(GameParticipantResource::canEdit($participant));

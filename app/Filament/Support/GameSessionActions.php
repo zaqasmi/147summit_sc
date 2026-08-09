@@ -292,7 +292,7 @@ class GameSessionActions
             ->with('player')
             ->get()
             ->mapWithKeys(fn (GameParticipant $participant): array => [
-                $participant->id => $participant->player_label . self::teamSuffix($participant),
+                $participant->id => $participant->player_label.self::teamSuffix($participant),
             ])
             ->all();
     }
@@ -307,7 +307,7 @@ class GameSessionActions
             ->whereIn('team', ['A', 'B'])
             ->get()
             ->groupBy('team')
-            ->map(fn ($participants, string $team): string => 'Team ' . $team . ' - ' . $participants
+            ->map(fn ($participants, string $team): string => 'Team '.$team.' - '.$participants
                 ->map(fn (GameParticipant $participant): string => $participant->player_label)
                 ->join(' & '))
             ->all();
@@ -323,7 +323,7 @@ class GameSessionActions
             ->get()
             ->filter(fn (GameParticipant $participant): bool => $participant->outstanding_amount > 0)
             ->mapWithKeys(fn (GameParticipant $participant): array => [
-                $participant->id => $participant->player_label . ' - ' . self::money($participant->outstanding_amount),
+                $participant->id => $participant->player_label.' - '.self::money($participant->outstanding_amount),
             ])
             ->all();
     }
@@ -349,11 +349,11 @@ class GameSessionActions
 
     private static function money(float|int|string|null $amount): string
     {
-        return 'Rs ' . number_format((float) $amount, 2);
+        return 'Rs '.number_format((float) $amount, 2);
     }
 
     private static function canManageGames(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->canManageGameSessions() ?? false;
     }
 }

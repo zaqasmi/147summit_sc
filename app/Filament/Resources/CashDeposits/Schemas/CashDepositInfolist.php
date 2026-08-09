@@ -16,7 +16,10 @@ class CashDepositInfolist
                     ->date(),
                 TextEntry::make('closing_source')
                     ->label('Closing method')
-                    ->formatStateUsing(fn (string $state): string => $state === 'manual' ? 'Register totals' : 'Game/payment records'),
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'game_sessions', 'system' => 'Checked-out game sessions',
+                        default => 'Manual table-wise sales',
+                    }),
                 TextEntry::make('opening_petty_cash')
                     ->label('Opening petty cash')
                     ->formatStateUsing(fn ($state): string => 'Rs '.number_format((float) $state, 2)),

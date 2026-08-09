@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\GameSessions;
 
-use App\Filament\Concerns\AdminOnlyMutations;
 use App\Filament\Resources\GameSessions\Pages\CreateGameSession;
 use App\Filament\Resources\GameSessions\Pages\EditGameSession;
 use App\Filament\Resources\GameSessions\Pages\ListGameSessions;
@@ -16,11 +15,10 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class GameSessionResource extends Resource
 {
-    use AdminOnlyMutations;
-
     protected static ?string $model = GameSession::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPlayCircle;
@@ -48,6 +46,26 @@ class GameSessionResource extends Resource
     public static function table(Table $table): Table
     {
         return GameSessionsTable::configure($table);
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->canManageGameSessions() ?? false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->user()?->canManageGameSessions() ?? false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function getRelations(): array

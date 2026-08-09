@@ -66,7 +66,7 @@ class GameSessionsTable
                     ->type('number')
                     ->rules(['integer', 'min:0'])
                     ->summarize(TableSummaries::numberTotal())
-                    ->disabled(fn (GameSession $record): bool => ! (auth()->user()?->isAdmin() ?? false) || $record->status !== 'active' || ! $record->isFrameGame())
+                    ->disabled(fn (GameSession $record): bool => ! (auth()->user()?->canManageGameSessions() ?? false) || $record->status !== 'active' || ! $record->isFrameGame())
                     ->updateStateUsing(function (GameSession $record, $state): int {
                         $frames = max(0, (int) $state);
 

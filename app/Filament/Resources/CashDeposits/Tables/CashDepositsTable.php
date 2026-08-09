@@ -28,6 +28,18 @@ class CashDepositsTable
                     ->date()
                     ->summarize(TableSummaries::recordCount())
                     ->sortable(),
+                TextColumn::make('closing_source')
+                    ->label('Source')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'game_sessions', 'system' => 'Game sessions',
+                        default => 'Manual',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'game_sessions', 'system' => 'info',
+                        default => 'gray',
+                    })
+                    ->sortable(),
                 TextColumn::make('manual_table_1_sale')
                     ->label('Table 1 sale')
                     ->formatStateUsing(fn ($state): string => self::money($state))

@@ -47,6 +47,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->role === 'sale_manager';
     }
 
+    public function canManageGameSessions(): bool
+    {
+        return $this->isAdmin() || $this->isSaleManager();
+    }
+
     /**
      * @return array<string, string>
      */

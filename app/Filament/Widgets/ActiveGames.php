@@ -42,7 +42,7 @@ class ActiveGames extends TableWidget
                 TextColumn::make('players')
                     ->label('Players')
                     ->getStateUsing(fn (GameSession $record): string => $record->participants
-                        ->map(fn ($participant): string => $participant->player_label . ($participant->team === 'solo' ? '' : " ({$participant->team})"))
+                        ->map(fn ($participant): string => $participant->player_label.($participant->team === 'solo' ? '' : " ({$participant->team})"))
                         ->join(', '))
                     ->wrap(),
                 TextColumn::make('game_type')
@@ -109,11 +109,11 @@ class ActiveGames extends TableWidget
 
     private function money(float|int|string|null $amount): string
     {
-        return 'Rs ' . number_format((float) $amount, 2);
+        return 'Rs '.number_format((float) $amount, 2);
     }
 
     private function canManageGames(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->canManageGameSessions() ?? false;
     }
 }

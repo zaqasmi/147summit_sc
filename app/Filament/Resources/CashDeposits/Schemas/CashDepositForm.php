@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\CashDeposits\Schemas;
 
 use App\Models\CustomerDue;
+use App\Models\GameParticipant;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
@@ -19,6 +20,11 @@ use Illuminate\Support\HtmlString;
 
 class CashDepositForm
 {
+    /**
+     * @var array<string, float>
+     */
+    private static array $gameSessionTableSalesCache = [];
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -42,6 +48,18 @@ class CashDepositForm
                             ->live()
                             ->afterStateUpdated(fn (Get $get, Set $set): null => self::updateClosingTotals($get, $set))
                             ->required(),
+                        Select::make('closing_source')
+                            ->label('Sales source')
+                            ->options(self::closingSourceOptions())
+                            ->default('manual')
+                            ->required()
+                            ->live()
+                            ->helperText('Use manual table sales for normal daily closing. Select checked-out game sessions only when you want session records to fill the table sales.')
+                            ->afterStateHydrated(function (Select $component, $state): void {
+                                $component->state(self::normalizeClosingSource($state));
+                            })
+                            ->afterStateUpdated(fn (Get $get, Set $set): null => self::updateClosingTotals($get, $set))
+                            ->dehydrateStateUsing(fn ($state): string => self::normalizeClosingSource($state)),
                         ...self::manualSaleFields(),
                         TextInput::make('total_sale')
                             ->label('Total sale')
@@ -298,9 +316,6 @@ class CashDepositForm
                             ->dehydrateStateUsing(fn ($state): float => self::moneyValue($state)),
                         Textarea::make('notes')
                             ->columnSpanFull(),
-                        Hidden::make('closing_source')
-                            ->default('manual')
-                            ->dehydrateStateUsing(fn (): string => 'manual'),
                         Hidden::make('cash_collected_from_counter')
                             ->default(0)
                             ->dehydrateStateUsing(fn ($state, Get $get): float => self::previewTotals($get)['cash_after_expense_due']),
@@ -333,15 +348,34 @@ class CashDepositForm
                 ->numeric()
                 ->inputMode('decimal')
                 ->default(0)
+                ->readOnly(fn (Get $get): bool => self::usesGameSessions($get))
+                ->afterStateHydrated(function (TextInput $component, Get $get) use ($number): void {
+                    if (self::usesGameSessions($get)) {
+                        $component->state(self::gameSessionTableSale($get, $number));
+                    }
+                })
                 ->live(onBlur: true)
                 ->afterStateUpdated(fn (Get $get, Set $set): null => self::updateClosingTotals($get, $set))
-                ->dehydrateStateUsing(fn ($state): float => self::moneyValue($state)))
+                ->dehydrateStateUsing(fn ($state, Get $get): float => self::usesGameSessions($get)
+                    ? self::gameSessionTableSale($get, $number)
+                    : self::moneyValue($state)))
             ->all();
     }
 
     private static function moneyValue(mixed $state): float
     {
         return round((float) ($state ?? 0), 2);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function closingSourceOptions(): array
+    {
+        return [
+            'manual' => 'Manual table-wise sales',
+            'game_sessions' => 'Use checked-out game sessions',
+        ];
     }
 
     /**
@@ -362,6 +396,12 @@ class CashDepositForm
     {
         $totals = self::previewTotals($get, $prefix);
 
+        if (self::usesGameSessions($get, $prefix)) {
+            foreach ([1, 2, 3, 4] as $number) {
+                $set($prefix.'manual_table_'.$number.'_sale', $totals['table_'.$number.'_sale']);
+            }
+        }
+
         $set($prefix.'total_sale', $totals['sales_total']);
         $set($prefix.'manual_expense_total', $totals['expense_total']);
         $set($prefix.'cash_collected_from_counter', $totals['cash_after_expense_due']);
@@ -370,7 +410,7 @@ class CashDepositForm
         $set($prefix.'opening_petty_cash', 0);
         $set($prefix.'dues_added', $totals['dues_total']);
         $set($prefix.'dues_recovered', $totals['dues_recovered_total']);
-        $set($prefix.'closing_source', 'manual');
+        $set($prefix.'closing_source', self::closingSource($get, $prefix));
 
         return null;
     }
@@ -380,8 +420,8 @@ class CashDepositForm
      */
     private static function previewTotals(Get $get, string $prefix = ''): array
     {
-        $salesTotal = collect([1, 2, 3, 4])
-            ->sum(fn (int $number): float => (float) ($get($prefix.'manual_table_'.$number.'_sale') ?? 0));
+        $tableSales = self::tableSalesByNumber($get, $prefix);
+        $salesTotal = collect($tableSales)->sum();
         $expenseRows = $get($prefix.'expenses');
         $expenseRows = is_array($expenseRows) ? $expenseRows : [];
         $expenseTotal = self::hasExpenseRows($expenseRows)
@@ -401,6 +441,10 @@ class CashDepositForm
         $cashToBeCollected = max(0, $cashAfterExpenseDue - $pettyCash);
 
         return [
+            'table_1_sale' => round((float) ($tableSales[1] ?? 0), 2),
+            'table_2_sale' => round((float) ($tableSales[2] ?? 0), 2),
+            'table_3_sale' => round((float) ($tableSales[3] ?? 0), 2),
+            'table_4_sale' => round((float) ($tableSales[4] ?? 0), 2),
             'sales_total' => round($salesTotal, 2),
             'expense_total' => round($expenseTotal, 2),
             'petty_cash' => round($pettyCash, 2),
@@ -410,6 +454,53 @@ class CashDepositForm
             'cash_to_be_collected' => round($cashToBeCollected, 2),
             'actual_collected' => round($actualCollected, 2),
         ];
+    }
+
+    /**
+     * @return array<int, float>
+     */
+    private static function tableSalesByNumber(Get $get, string $prefix = ''): array
+    {
+        return collect([1, 2, 3, 4])
+            ->mapWithKeys(fn (int $number): array => [
+                $number => self::usesGameSessions($get, $prefix)
+                    ? self::gameSessionTableSale($get, $number, $prefix)
+                    : self::moneyValue($get($prefix.'manual_table_'.$number.'_sale')),
+            ])
+            ->all();
+    }
+
+    private static function usesGameSessions(Get $get, string $prefix = ''): bool
+    {
+        return self::closingSource($get, $prefix) === 'game_sessions';
+    }
+
+    private static function closingSource(Get $get, string $prefix = ''): string
+    {
+        return self::normalizeClosingSource($get($prefix.'closing_source') ?? 'manual');
+    }
+
+    private static function normalizeClosingSource(mixed $source): string
+    {
+        return in_array($source, ['game_sessions', 'system'], true) ? 'game_sessions' : 'manual';
+    }
+
+    private static function gameSessionTableSale(Get $get, int $tableNumber, string $prefix = ''): float
+    {
+        $date = $get($prefix.'deposit_date') ?: today()->toDateString();
+        $day = Carbon::parse($date)->toDateString();
+        $cacheKey = $day.':'.$tableNumber;
+
+        if (array_key_exists($cacheKey, self::$gameSessionTableSalesCache)) {
+            return self::$gameSessionTableSalesCache[$cacheKey];
+        }
+
+        return self::$gameSessionTableSalesCache[$cacheKey] = round((float) GameParticipant::query()
+            ->whereHas('gameSession', function ($query) use ($day, $tableNumber): void {
+                $query->whereDate('checked_out_at', $day)
+                    ->whereHas('snookerTable', fn ($tableQuery) => $tableQuery->where('number', $tableNumber));
+            })
+            ->sum('total_due'), 2);
     }
 
     private static function expenseDataForClosing(array $data, Get $get): ?array
