@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\TournamentPlayers\Schemas;
 
+use App\Filament\Support\PublicFileUploadPreview;
 use App\Models\TournamentPlayer;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -42,7 +43,12 @@ class TournamentPlayerForm
                             ->label('Photo')
                             ->image()
                             ->disk('public')
-                            ->directory('tournaments/players'),
+                            ->visibility('public')
+                            ->directory('tournaments/players')
+                            ->imagePreviewHeight('160')
+                            ->openable()
+                            ->downloadable()
+                            ->getUploadedFileUsing(PublicFileUploadPreview::currentHost()),
                     ]),
                 Section::make('Player details')
                     ->columns(3)

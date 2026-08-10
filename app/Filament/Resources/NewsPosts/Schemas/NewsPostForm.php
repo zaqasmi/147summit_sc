@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\NewsPosts\Schemas;
 
+use App\Filament\Support\PublicFileUploadPreview;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
@@ -33,7 +34,12 @@ class NewsPostForm
                         FileUpload::make('cover_image_path')
                             ->image()
                             ->disk('public')
-                            ->directory('cms/news'),
+                            ->visibility('public')
+                            ->directory('cms/news')
+                            ->imagePreviewHeight('160')
+                            ->openable()
+                            ->downloadable()
+                            ->getUploadedFileUsing(PublicFileUploadPreview::currentHost()),
                     ]),
                 Section::make('Publishing')
                     ->columns(3)

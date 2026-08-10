@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\HomepageSlides\Schemas;
 
+use App\Filament\Support\PublicFileUploadPreview;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -25,7 +26,12 @@ class HomepageSlideForm
                         FileUpload::make('image_path')
                             ->image()
                             ->disk('public')
-                            ->directory('cms/slides'),
+                            ->visibility('public')
+                            ->directory('cms/slides')
+                            ->imagePreviewHeight('160')
+                            ->openable()
+                            ->downloadable()
+                            ->getUploadedFileUsing(PublicFileUploadPreview::currentHost()),
                         TextInput::make('button_label')
                             ->maxLength(255),
                         TextInput::make('button_url')

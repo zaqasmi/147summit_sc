@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ManagementTeamMembers\Schemas;
 
+use App\Filament\Support\PublicFileUploadPreview;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -28,7 +29,12 @@ class ManagementTeamMemberForm
                             ->label('Photo')
                             ->image()
                             ->disk('public')
-                            ->directory('cms/team'),
+                            ->visibility('public')
+                            ->directory('cms/team')
+                            ->imagePreviewHeight('160')
+                            ->openable()
+                            ->downloadable()
+                            ->getUploadedFileUsing(PublicFileUploadPreview::currentHost()),
                         Textarea::make('bio')
                             ->columnSpanFull(),
                         TextInput::make('phone')

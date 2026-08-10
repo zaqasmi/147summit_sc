@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Sponsors\Schemas;
 
+use App\Filament\Support\PublicFileUploadPreview;
 use App\Models\Sponsor;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -31,7 +32,12 @@ class SponsorForm
                             ->label('Logo')
                             ->image()
                             ->disk('public')
-                            ->directory('cms/sponsors'),
+                            ->visibility('public')
+                            ->directory('cms/sponsors')
+                            ->imagePreviewHeight('120')
+                            ->openable()
+                            ->downloadable()
+                            ->getUploadedFileUsing(PublicFileUploadPreview::currentHost()),
                         Textarea::make('description')
                             ->columnSpanFull(),
                         TextInput::make('website_url')

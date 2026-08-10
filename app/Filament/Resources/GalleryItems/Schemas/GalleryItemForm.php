@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\GalleryItems\Schemas;
 
+use App\Filament\Support\PublicFileUploadPreview;
 use App\Models\GalleryItem;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -37,7 +38,12 @@ class GalleryItemForm
                             ->label('Image/file')
                             ->image()
                             ->disk('public')
-                            ->directory('cms/gallery'),
+                            ->visibility('public')
+                            ->directory('cms/gallery')
+                            ->imagePreviewHeight('160')
+                            ->openable()
+                            ->downloadable()
+                            ->getUploadedFileUsing(PublicFileUploadPreview::currentHost()),
                         TextInput::make('video_url')
                             ->url()
                             ->maxLength(255),
