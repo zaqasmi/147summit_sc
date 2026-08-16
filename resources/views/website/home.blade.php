@@ -281,7 +281,7 @@
                 @endforeach
 
                 @foreach ($teamMembers->take(3) as $member)
-                    @php($photo = $publicStorageUrl($member->photo_path))
+                    @php($photo = $member->photo_url)
                     <article class="card">
                         @if ($photo)
                             <div class="media"><img src="{{ $photo }}" alt="{{ $member->name }}"></div>

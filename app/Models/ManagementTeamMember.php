@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class ManagementTeamMember extends Model
 {
@@ -25,5 +26,18 @@ class ManagementTeamMember extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        if (blank($this->photo_path)) {
+            return null;
+        }
+
+        if (Str::startsWith($this->photo_path, ['http://', 'https://', '/'])) {
+            return $this->photo_path;
+        }
+
+        return asset('storage/'.ltrim($this->photo_path, '/'));
     }
 }

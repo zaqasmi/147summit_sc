@@ -15,9 +15,11 @@ class ManagementTeamMemberInfolist
             ->components([
                 TextEntry::make('name'),
                 TextEntry::make('role_title'),
-                ImageEntry::make('photo_path')
+                ImageEntry::make('photo_url')
                     ->label('Photo')
-                    ->disk('public')
+                    ->circular()
+                    ->imageSize(120)
+                    ->checkFileExistence(false)
                     ->placeholder('-'),
                 TextEntry::make('bio')
                     ->placeholder('-')

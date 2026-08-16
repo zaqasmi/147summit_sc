@@ -26,9 +26,11 @@ class ManagementTeamMembersTable
                 TextColumn::make('role_title')
                     ->label('Role')
                     ->searchable(),
-                ImageColumn::make('photo_path')
+                ImageColumn::make('photo_url')
                     ->label('Photo')
-                    ->disk('public'),
+                    ->circular()
+                    ->imageSize(48)
+                    ->checkFileExistence(false),
                 TextColumn::make('phone')
                     ->searchable(),
                 TextColumn::make('email')
