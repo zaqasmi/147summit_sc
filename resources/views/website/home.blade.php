@@ -1,11 +1,10 @@
 @extends('website.layout')
 
 @php
+    use App\Support\PublicStorageUrl;
     use Illuminate\Support\Str;
 
-    $publicStorageUrl = fn (?string $path): ?string => filled($path)
-        ? (Str::startsWith($path, ['http://', 'https://', '/']) ? $path : asset('storage/'.ltrim($path, '/')))
-        : null;
+    $publicStorageUrl = fn (mixed $path): ?string => PublicStorageUrl::make($path);
     $primarySlide = $slides->first();
     $heroImage = $publicStorageUrl($primarySlide?->image_path) ?: asset('website-assets/147-summit-cover.jpeg');
     $heroTitle = $primarySlide?->title ?? ($settings['homepage_title'] ?? '147 Summit Snooker Club Gilgit');
@@ -270,7 +269,7 @@
 
             <div class="grid three">
                 @foreach ($sponsors->take(3) as $sponsor)
-                    @php($logo = $publicStorageUrl($sponsor->logo_path))
+                    @php($logo = $sponsor->logo_url)
                     <article class="card">
                         @if ($logo)
                             <div class="media"><img src="{{ $logo }}" alt="{{ $sponsor->name }}"></div>

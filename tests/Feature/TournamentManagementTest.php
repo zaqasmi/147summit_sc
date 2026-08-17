@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\ManagementTeamMember;
 use App\Models\NewsPost;
 use App\Models\Player;
+use App\Models\Sponsor;
 use App\Models\Tournament;
 use App\Models\TournamentMatchFrame;
 use App\Models\TournamentPlayer;
@@ -149,12 +151,30 @@ class TournamentManagementTest extends TestCase
             'published_at' => now(),
         ]);
 
+        Sponsor::create([
+            'name' => 'Summit Partner',
+            'category' => 'business_partner',
+            'logo_path' => 'public/cms/sponsors/summit-partner.png',
+            'is_active' => true,
+        ]);
+
+        ManagementTeamMember::create([
+            'name' => 'Club Manager',
+            'role_title' => 'Manager',
+            'photo_path' => 'storage/cms/team/club-manager.jpg',
+            'is_active' => true,
+        ]);
+
         $this->get(route('website.home'))
             ->assertOk()
             ->assertSee('Public Open')
             ->assertSee('Tournament announced')
             ->assertSee('Gilgit-Baltistan Open Snooker Championship 2026')
-            ->assertSee('Main Hall');
+            ->assertSee('Main Hall')
+            ->assertSee('Summit Partner')
+            ->assertSee('storage/cms/sponsors/summit-partner.png', false)
+            ->assertSee('Club Manager')
+            ->assertSee('storage/cms/team/club-manager.jpg', false);
 
         $this->get(route('website.about'))
             ->assertOk()

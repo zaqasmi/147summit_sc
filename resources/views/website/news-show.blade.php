@@ -1,11 +1,9 @@
 @extends('website.layout')
 
 @php
-    use Illuminate\Support\Str;
+    use App\Support\PublicStorageUrl;
 
-    $image = filled($post->cover_image_path)
-        ? (Str::startsWith($post->cover_image_path, ['http://', 'https://', '/']) ? $post->cover_image_path : asset('storage/'.ltrim($post->cover_image_path, '/')))
-        : null;
+    $image = PublicStorageUrl::make($post->cover_image_path);
 @endphp
 
 @section('title', $post->title.' | '.($settings['site_name'] ?? '147 Summit Snooker Club'))

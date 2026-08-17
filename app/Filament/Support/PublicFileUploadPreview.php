@@ -2,6 +2,7 @@
 
 namespace App\Filament\Support;
 
+use App\Support\PublicStorageUrl;
 use Closure;
 use Filament\Forms\Components\BaseFileUpload;
 use Illuminate\Support\Str;
@@ -17,8 +18,10 @@ class PublicFileUploadPreview
                 return $uploadedFile;
             }
 
-            if (! Str::startsWith($file, ['http://', 'https://', '/'])) {
-                $uploadedFile['url'] = Str::sanitizeUrl(asset('storage/'.ltrim($file, '/')));
+            $url = PublicStorageUrl::make($file);
+
+            if ($url !== null) {
+                $uploadedFile['url'] = Str::sanitizeUrl($url);
             }
 
             return $uploadedFile;

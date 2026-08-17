@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PublicStorageUrl;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -37,5 +38,10 @@ class Sponsor extends Model
             'equipment_vendor' => 'Equipment vendor',
             'business_partner' => 'Business partner',
         ];
+    }
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        return PublicStorageUrl::make($this->logo_path);
     }
 }
