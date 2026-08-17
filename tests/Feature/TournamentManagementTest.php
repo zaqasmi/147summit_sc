@@ -180,9 +180,9 @@ class TournamentManagementTest extends TestCase
             ->assertSee('Gilgit-Baltistan Open Snooker Championship 2026')
             ->assertSee('Main Hall')
             ->assertSee('Summit Partner')
-            ->assertSee('storage/cms/sponsors/summit-partner.png', false)
+            ->assertSee('uploads/cms/sponsors/summit-partner.png', false)
             ->assertSee('Club Manager')
-            ->assertSee('storage/cms/team/club-manager.jpg', false)
+            ->assertSee('uploads/cms/team/club-manager.jpg', false)
             ->assertSee('Media Lead');
 
         $this->get(route('website.about'))

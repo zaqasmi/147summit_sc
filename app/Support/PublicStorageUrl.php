@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Stringable;
 
@@ -61,6 +62,14 @@ class PublicStorageUrl
             }
         } while ($path !== $originalPath);
 
-        return $path === '' ? null : '/storage/'.$path;
+        if ($path === '') {
+            return null;
+        }
+
+        if (Route::has('public-storage.show')) {
+            return route('public-storage.show', ['path' => $path]);
+        }
+
+        return url('/storage/'.$path);
     }
 }

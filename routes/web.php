@@ -1,10 +1,14 @@
 <?php
 
 use App\Http\Controllers\CustomerDueReportExportController;
+use App\Http\Controllers\PublicStorageFileController;
 use App\Http\Controllers\WebsiteController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [WebsiteController::class, 'home'])->name('website.home');
+Route::get('/uploads/{path}', PublicStorageFileController::class)
+    ->where('path', '.*')
+    ->name('public-storage.show');
 Route::get('/about', [WebsiteController::class, 'about'])->name('website.about');
 Route::get('/live/current-tournament', [WebsiteController::class, 'currentTournamentLive'])->name('website.live.current-tournament');
 Route::get('/tournaments', [WebsiteController::class, 'tournaments'])->name('website.tournaments');
