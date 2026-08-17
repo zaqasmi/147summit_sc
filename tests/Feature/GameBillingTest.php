@@ -1999,6 +1999,14 @@ class GameBillingTest extends TestCase
         $this->assertTrue(MonthlyReport::canAccess());
         $this->assertTrue(YearlyReport::canAccess());
 
+        $websiteNavigationItem = collect(filament()->getPanel('admin')->getNavigationItems())
+            ->first(fn ($item): bool => $item->getLabel() === 'Website');
+
+        $this->assertNotNull($websiteNavigationItem);
+        $this->assertTrue($websiteNavigationItem->isVisible());
+        $this->assertSame(route('website.home'), $websiteNavigationItem->getUrl());
+        $this->assertTrue($websiteNavigationItem->shouldOpenUrlInNewTab());
+
         $this->get(route('customer-dues.export-pdf'))
             ->assertOk()
             ->assertHeader('Content-Type', 'application/pdf');
@@ -2023,5 +2031,13 @@ class GameBillingTest extends TestCase
         $this->assertTrue(DailyReport::canAccess());
         $this->assertTrue(MonthlyReport::canAccess());
         $this->assertTrue(YearlyReport::canAccess());
+
+        $websiteNavigationItem = collect(filament()->getPanel('admin')->getNavigationItems())
+            ->first(fn ($item): bool => $item->getLabel() === 'Website');
+
+        $this->assertNotNull($websiteNavigationItem);
+        $this->assertTrue($websiteNavigationItem->isVisible());
+        $this->assertSame(route('website.home'), $websiteNavigationItem->getUrl());
+        $this->assertTrue($websiteNavigationItem->shouldOpenUrlInNewTab());
     }
 }
