@@ -10,6 +10,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Html;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -156,11 +157,13 @@ class CashDepositForm
                             ])
                             ->collapsible()
                             ->addActionLabel('Add customer due')
-                            ->itemLabel(fn (array $state): ?string => filled($state['customer_name'] ?? null)
-                                ? $state['customer_name']
-                                : null)
+                            ->itemLabel(fn (array $state): ?string => self::customerDueRowLabel($state))
                             ->afterStateHydrated(function (Repeater $component, Get $get): void {
-                                if (filled($component->getState())) {
+                                $state = $component->getState();
+
+                                if (filled($state)) {
+                                    $component->state(self::customerDueRowsForForm(is_array($state) ? $state : []));
+
                                     return;
                                 }
 
@@ -172,6 +175,7 @@ class CashDepositForm
 
                                 $component->state([
                                     [
+                                        'customer_due_id' => null,
                                         'customer_name' => 'Existing customer due',
                                         'amount' => round($duesAdded, 2),
                                     ],
@@ -180,10 +184,20 @@ class CashDepositForm
                             ->afterStateUpdated(fn (Get $get, Set $set): null => self::updateClosingTotals($get, $set))
                             ->dehydrateStateUsing(fn ($state): array => self::customerDueRowsForStorage(is_array($state) ? $state : []))
                             ->schema([
-                                TextInput::make('customer_name')
-                                    ->label('Customer name')
+                                Hidden::make('customer_name'),
+                                Select::make('customer_due_id')
+                                    ->label('Customer / player')
+                                    ->options(fn (): array => self::customerDueChargeOptions())
+                                    ->getOptionLabelUsing(fn ($value): ?string => self::customerDueOptionLabel($value))
+                                    ->searchable()
+                                    ->preload()
                                     ->required()
-                                    ->live(onBlur: true),
+                                    ->live()
+                                    ->createOptionForm(self::customerDueCreateOptionForm())
+                                    ->createOptionUsing(fn (array $data): int => self::createCustomerDueFromOption($data))
+                                    ->afterStateUpdated(function (Set $set, $state): void {
+                                        $set('customer_name', CustomerDue::query()->find($state)?->customer_name);
+                                    }),
                                 TextInput::make('amount')
                                     ->label('Amount')
                                     ->prefix('Rs')
@@ -220,7 +234,7 @@ class CashDepositForm
                             ->defaultItems(0)
                             ->columns([
                                 'default' => 1,
-                                'md' => 2,
+                                'md' => 4,
                             ])
                             ->collapsible()
                             ->addActionLabel('Add recovered due')
@@ -240,15 +254,51 @@ class CashDepositForm
                                 Select::make('customer_due_id')
                                     ->label('Customer')
                                     ->options(fn (Get $get): array => self::customerDueOptions($get))
+                                    ->getOptionLabelUsing(fn ($value): ?string => self::customerDueOptionLabel($value))
                                     ->searchable()
+                                    ->preload()
                                     ->required()
-                                    ->live(),
+                                    ->live()
+                                    ->createOptionForm(self::customerDueCreateOptionForm(true))
+                                    ->createOptionUsing(fn (array $data): int => self::createCustomerDueFromOption($data))
+                                    ->afterStateUpdated(function (Get $get, Set $set): null {
+                                        self::syncClearDueDiscount($get, $set);
+
+                                        return self::updateClosingTotals($get, $set, '../../');
+                                    })
+                                    ->columnSpan([
+                                        'default' => 1,
+                                        'md' => 2,
+                                    ]),
                                 TextInput::make('amount')
                                     ->label('Amount paid')
                                     ->prefix('Rs')
                                     ->required()
                                     ->numeric()
-                                    ->minValue(0.01)
+                                    ->minValue(0)
+                                    ->inputMode('decimal')
+                                    ->default(0)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(function (Get $get, Set $set): null {
+                                        self::syncClearDueDiscount($get, $set);
+
+                                        return self::updateClosingTotals($get, $set, '../../');
+                                    }),
+                                Toggle::make('clear_remaining_due')
+                                    ->label('Clear remaining due')
+                                    ->helperText('Discounts the balance left after payment.')
+                                    ->default(false)
+                                    ->live()
+                                    ->afterStateUpdated(function (Get $get, Set $set): null {
+                                        self::syncClearDueDiscount($get, $set);
+
+                                        return self::updateClosingTotals($get, $set, '../../');
+                                    }),
+                                TextInput::make('discount_amount')
+                                    ->label('Discount / waiver')
+                                    ->prefix('Rs')
+                                    ->numeric()
+                                    ->minValue(0)
                                     ->inputMode('decimal')
                                     ->default(0)
                                     ->live(onBlur: true)
@@ -273,6 +323,17 @@ class CashDepositForm
 
                                 return round((float) $state, 2);
                             }),
+                        TextInput::make('dues_discounted')
+                            ->label('Customer dues discounted')
+                            ->prefix('Rs')
+                            ->numeric()
+                            ->inputMode('decimal')
+                            ->readOnly()
+                            ->default(0)
+                            ->afterStateHydrated(function (TextInput $component, Get $get): void {
+                                $component->state(self::previewTotals($get)['dues_discounted_total']);
+                            })
+                            ->dehydrated(false),
                     ]),
 
                 Section::make('Collection')
@@ -410,6 +471,7 @@ class CashDepositForm
         $set($prefix.'opening_petty_cash', 0);
         $set($prefix.'dues_added', $totals['dues_total']);
         $set($prefix.'dues_recovered', $totals['dues_recovered_total']);
+        $set($prefix.'dues_discounted', $totals['dues_discounted_total']);
         $set($prefix.'closing_source', self::closingSource($get, $prefix));
 
         return null;
@@ -435,6 +497,9 @@ class CashDepositForm
         $duesRecoveredTotal = is_array($customerDuePaymentRows)
             ? self::customerDuePaymentRowsTotal($customerDuePaymentRows)
             : (float) ($get($prefix.'dues_recovered') ?? 0);
+        $duesDiscountedTotal = is_array($customerDuePaymentRows)
+            ? self::customerDuePaymentRowsDiscountTotal($customerDuePaymentRows)
+            : 0.0;
         $pettyCash = (float) ($get($prefix.'petty_cash_kept') ?? 0);
         $actualCollected = (float) ($get($prefix.'amount_collected_from_staff') ?? 0);
         $cashAfterExpenseDue = max(0, $salesTotal - $duesTotal + $duesRecoveredTotal - $expenseTotal);
@@ -450,6 +515,7 @@ class CashDepositForm
             'petty_cash' => round($pettyCash, 2),
             'dues_total' => round($duesTotal, 2),
             'dues_recovered_total' => round($duesRecoveredTotal, 2),
+            'dues_discounted_total' => round($duesDiscountedTotal, 2),
             'cash_after_expense_due' => round($cashAfterExpenseDue, 2),
             'cash_to_be_collected' => round($cashToBeCollected, 2),
             'actual_collected' => round($actualCollected, 2),
@@ -531,8 +597,11 @@ class CashDepositForm
     {
         $customerDueId = $data['customer_due_id'] ?? null;
         $amount = (float) ($data['amount'] ?? 0);
+        $discountAmount = (bool) ($data['clear_remaining_due'] ?? false)
+            ? self::remainingDueAfterPayment($customerDueId, $amount)
+            : (float) ($data['discount_amount'] ?? 0);
 
-        if (! $customerDueId || $amount <= 0) {
+        if (! $customerDueId || ($amount <= 0 && $discountAmount <= 0)) {
             return null;
         }
 
@@ -542,8 +611,45 @@ class CashDepositForm
             'customer_due_id' => $customerDueId,
             'payment_date' => Carbon::parse($date)->toDateString(),
             'amount' => round($amount, 2),
+            'discount_amount' => round(max(0, $discountAmount), 2),
             'notes' => null,
         ];
+    }
+
+    private static function syncClearDueDiscount(Get $get, Set $set): void
+    {
+        if (! (bool) $get('clear_remaining_due')) {
+            return;
+        }
+
+        $set('discount_amount', self::remainingDueAfterPayment($get('customer_due_id'), (float) ($get('amount') ?? 0)));
+    }
+
+    private static function remainingDueAfterPayment(mixed $customerDueId, float $amountPaid): float
+    {
+        if (! $customerDueId) {
+            return 0.0;
+        }
+
+        $balance = (float) (CustomerDue::query()
+            ->whereKey($customerDueId)
+            ->value('balance_due') ?? 0);
+
+        return round(max(0, $balance - $amountPaid), 2);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function customerDueChargeOptions(): array
+    {
+        return CustomerDue::query()
+            ->orderBy('customer_name')
+            ->get()
+            ->mapWithKeys(fn (CustomerDue $due): array => [
+                $due->id => self::formatCustomerDueOption($due),
+            ])
+            ->all();
     }
 
     /**
@@ -564,9 +670,73 @@ class CashDepositForm
             ->orderBy('customer_name')
             ->get()
             ->mapWithKeys(fn (CustomerDue $due): array => [
-                $due->id => $due->customer_name.' (Rs '.number_format((float) $due->balance_due, 2).')',
+                $due->id => self::formatCustomerDueOption($due),
             ])
             ->all();
+    }
+
+    private static function customerDueOptionLabel(mixed $customerDueId): ?string
+    {
+        if (! $customerDueId) {
+            return null;
+        }
+
+        $customerDue = CustomerDue::query()->find($customerDueId);
+
+        return $customerDue ? self::formatCustomerDueOption($customerDue) : null;
+    }
+
+    private static function formatCustomerDueOption(CustomerDue $due): string
+    {
+        return $due->customer_name.' (Rs '.number_format((float) $due->balance_due, 2).')';
+    }
+
+    /**
+     * @return array<int, TextInput>
+     */
+    private static function customerDueCreateOptionForm(bool $withOpeningBalance = false): array
+    {
+        $schema = [
+            TextInput::make('customer_name')
+                ->label('Customer / player name')
+                ->required()
+                ->maxLength(255),
+            TextInput::make('phone')
+                ->tel()
+                ->maxLength(255),
+        ];
+
+        if ($withOpeningBalance) {
+            $schema[] = TextInput::make('opening_balance')
+                ->label('Existing balance')
+                ->prefix('Rs')
+                ->numeric()
+                ->minValue(0)
+                ->inputMode('decimal')
+                ->default(0);
+        }
+
+        return $schema;
+    }
+
+    private static function createCustomerDueFromOption(array $data): int
+    {
+        $customerDue = CustomerDue::findOrCreateByName((string) ($data['customer_name'] ?? ''));
+        $updates = [];
+
+        if (filled($data['phone'] ?? null) && blank($customerDue->phone)) {
+            $updates['phone'] = trim((string) $data['phone']);
+        }
+
+        if (array_key_exists('opening_balance', $data) && (float) $data['opening_balance'] > 0 && (float) $customerDue->opening_balance <= 0) {
+            $updates['opening_balance'] = round((float) $data['opening_balance'], 2);
+        }
+
+        if ($updates !== []) {
+            $customerDue->fill($updates)->save();
+        }
+
+        return $customerDue->id;
     }
 
     /**
@@ -606,19 +776,91 @@ class CashDepositForm
     }
 
     /**
+     * @param  array<string, array<string, mixed>>  $customerDuePaymentRows
+     */
+    private static function customerDuePaymentRowsDiscountTotal(array $customerDuePaymentRows): float
+    {
+        return collect($customerDuePaymentRows)
+            ->sum(fn (array $row): float => (float) ($row['discount_amount'] ?? 0));
+    }
+
+    /**
      * @param  array<string, array<string, mixed>>  $customerDueRows
-     * @return array<int, array{customer_name: string, amount: float}>
+     * @return array<int, array{customer_due_id: int|null, customer_name: string, amount: float}>
      */
     private static function customerDueRowsForStorage(array $customerDueRows): array
     {
         return collect($customerDueRows)
-            ->map(fn (array $row): array => [
-                'customer_name' => trim((string) ($row['customer_name'] ?? '')),
-                'amount' => round((float) ($row['amount'] ?? 0), 2),
-            ])
+            ->map(function (array $row): array {
+                $customerDue = self::customerDueFromRow($row);
+                $customerDueId = $customerDue?->id;
+                $customerName = $customerDue?->customer_name ?? trim((string) ($row['customer_name'] ?? ''));
+
+                return [
+                    'customer_due_id' => $customerDueId,
+                    'customer_name' => $customerName,
+                    'amount' => round((float) ($row['amount'] ?? 0), 2),
+                ];
+            })
             ->filter(fn (array $row): bool => $row['customer_name'] !== '' && $row['amount'] > 0)
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $customerDueRows
+     * @return array<string, array<string, mixed>>
+     */
+    private static function customerDueRowsForForm(array $customerDueRows): array
+    {
+        return collect($customerDueRows)
+            ->map(function (array $row): array {
+                $customerDue = self::customerDueFromRow($row);
+
+                return [
+                    ...$row,
+                    'customer_due_id' => $customerDue?->id ?? ($row['customer_due_id'] ?? null),
+                    'customer_name' => $customerDue?->customer_name ?? trim((string) ($row['customer_name'] ?? '')),
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private static function customerDueFromRow(array $row): ?CustomerDue
+    {
+        $customerDueId = $row['customer_due_id'] ?? null;
+
+        if ($customerDueId) {
+            $customerDue = CustomerDue::query()->find($customerDueId);
+
+            if ($customerDue) {
+                return $customerDue;
+            }
+        }
+
+        $customerName = trim((string) ($row['customer_name'] ?? ''));
+
+        if ($customerName === '') {
+            return null;
+        }
+
+        return CustomerDue::query()
+            ->whereRaw('lower(customer_name) = ?', [mb_strtolower($customerName)])
+            ->first();
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     */
+    private static function customerDueRowLabel(array $state): ?string
+    {
+        $customerDue = self::customerDueFromRow($state);
+
+        return $customerDue?->customer_name
+            ?? (filled($state['customer_name'] ?? null) ? $state['customer_name'] : null);
     }
 
     private static function closingSummary(Get $get): HtmlString
@@ -643,6 +885,10 @@ class CashDepositForm
         </div>
         <div class="summit-stat-card" data-tone="green">
             <div class="summit-stat-label">Dues recovered</div>
+            <div class="summit-stat-value">%s</div>
+        </div>
+        <div class="summit-stat-card" data-tone="amber">
+            <div class="summit-stat-label">Dues discounted</div>
             <div class="summit-stat-value">%s</div>
         </div>
         <div class="summit-stat-card" data-tone="teal">
@@ -675,6 +921,7 @@ HTML,
             self::money($totals['expense_total']),
             self::money($totals['dues_total']),
             self::money($totals['dues_recovered_total']),
+            self::money($totals['dues_discounted_total']),
             self::money($totals['petty_cash']),
             self::money($totals['cash_to_be_collected']),
             self::money($totals['actual_collected']),

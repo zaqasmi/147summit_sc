@@ -15,7 +15,8 @@ class EditCustomerDue extends EditRecord
     {
         return [
             ViewAction::make(),
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
         ];
     }
 }

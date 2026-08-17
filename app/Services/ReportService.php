@@ -100,6 +100,9 @@ class ReportService
             default => $dueTotal,
         };
         $duesRecovered = (float) $deposits->sum('dues_recovered');
+        $duesDiscounted = (float) CustomerDuePayment::query()
+            ->whereDate('payment_date', $day)
+            ->sum('discount_amount');
         $salesTotal = max(0, $grossSalesTotal - $duesAdded + $duesRecovered);
 
         $cashCollected = (float) Payment::query()
@@ -208,7 +211,8 @@ class ReportService
             'due_total' => $dueTotal,
             'dues_added' => $duesAdded,
             'dues_recovered' => $duesRecovered,
-            'dues_net_change' => $duesAdded - $duesRecovered,
+            'dues_discounted' => $duesDiscounted,
+            'dues_net_change' => $duesAdded - $duesRecovered - $duesDiscounted,
             'dues' => $this->duesSummary($day),
             'add_on_total' => $addOnTotal,
             'total_collection' => $totalCollection,
@@ -289,6 +293,7 @@ class ReportService
         $capitalInstallmentsPaidFromBusiness = 0.0;
         $duesAdded = 0.0;
         $duesRecovered = 0.0;
+        $duesDiscounted = 0.0;
         $counterCashCollected = 0.0;
         $netProfit = 0.0;
         $commissionEstimate = 0.0;
@@ -318,6 +323,7 @@ class ReportService
             $capitalInstallmentsPaidFromBusiness += (float) $daily['capital_installments_paid_from_business'];
             $duesAdded += (float) $daily['dues_added'];
             $duesRecovered += (float) $daily['dues_recovered'];
+            $duesDiscounted += (float) $daily['dues_discounted'];
             $counterCashCollected += (float) $daily['counter_cash_collected'];
             $netProfit += (float) $daily['net_cash_profit'];
             $commissionEstimate += (float) $daily['staff_share_estimate'];
@@ -344,6 +350,7 @@ class ReportService
                 $daily['staff_paid_total'],
                 $daily['dues_added'],
                 $daily['dues_recovered'],
+                $daily['dues_discounted'],
             ])->contains(fn ($amount): bool => (float) $amount > 0);
 
             if ($hasActivity) {
@@ -357,6 +364,7 @@ class ReportService
                     'staff_paid_total' => (float) $daily['staff_paid_total'],
                     'dues_added' => (float) $daily['dues_added'],
                     'dues_recovered' => (float) $daily['dues_recovered'],
+                    'dues_discounted' => (float) $daily['dues_discounted'],
                     'dues_net_change' => (float) $daily['dues_net_change'],
                     'source_label' => $daily['source_label'],
                 ];
@@ -417,7 +425,8 @@ class ReportService
             'capital_installments_paid_from_business' => $capitalInstallmentsPaidFromBusiness,
             'dues_added' => $duesAdded,
             'dues_recovered' => $duesRecovered,
-            'dues_net_change' => $duesAdded - $duesRecovered,
+            'dues_discounted' => $duesDiscounted,
+            'dues_net_change' => $duesAdded - $duesRecovered - $duesDiscounted,
             'dues' => $this->duesSummary($end),
             'net_profit' => $netProfit,
             'commission_distribution_base' => $commissionDistributionBase,
@@ -818,6 +827,7 @@ class ReportService
         $capitalInstallmentsPaid = (float) $months->sum('capital_installments_paid');
         $duesAdded = (float) $months->sum('dues_added');
         $duesRecovered = (float) $months->sum('dues_recovered');
+        $duesDiscounted = (float) $months->sum('dues_discounted');
         $netProfit = (float) $months->sum('net_profit');
         $commissionDistributionBase = (float) $months->sum('commission_distribution_base');
         $commissionEstimate = (float) $months->sum('commission_estimate');
@@ -844,7 +854,8 @@ class ReportService
             'capital_installments_paid' => $capitalInstallmentsPaid,
             'dues_added' => $duesAdded,
             'dues_recovered' => $duesRecovered,
-            'dues_net_change' => $duesAdded - $duesRecovered,
+            'dues_discounted' => $duesDiscounted,
+            'dues_net_change' => $duesAdded - $duesRecovered - $duesDiscounted,
             'dues' => $this->duesSummary($end),
             'net_profit' => $netProfit,
             'commission_distribution_base' => $commissionDistributionBase,
@@ -893,6 +904,7 @@ class ReportService
 
         $duesAddedByMonth = $this->duesAddedByMonth($start, $end);
         $duesRecoveredByMonth = $this->duesRecoveredByMonth($start, $end);
+        $duesDiscountedByMonth = $this->duesDiscountedByMonth($start, $end);
         $staffPaidByMonth = $this->staffPaidByMonth($start, $end);
         $capitalPaidByMonth = $this->capitalInstallmentsPaidByMonth($start, $end);
         $capitalPaidFromCounterByDate = $this->capitalInstallmentsPaidFromCounterByDate($start, $end);
@@ -906,10 +918,11 @@ class ReportService
         $duesToDate = $this->duesSummary($start->copy()->subDay());
         $duesAddedToDate = (float) $duesToDate['added_to_date'];
         $duesRecoveredToDate = (float) $duesToDate['recovered_to_date'];
+        $duesDiscountedToDate = (float) $duesToDate['discounted_to_date'];
 
         $manualDeposits
             ->groupBy(fn (CashDeposit $deposit): string => $deposit->deposit_date->toDateString())
-            ->each(function ($dayDeposits, string $date) use ($months, $tableNumbers, $duesAddedByMonth, $duesRecoveredByMonth, $capitalPaidFromCounterByDate, $rates): void {
+            ->each(function ($dayDeposits, string $date) use ($months, $tableNumbers, $duesAddedByMonth, $duesRecoveredByMonth, $duesDiscountedByMonth, $capitalPaidFromCounterByDate, $rates): void {
                 $monthKey = Carbon::parse($date)->format('Y-m');
 
                 if (! $months->has($monthKey)) {
@@ -920,6 +933,7 @@ class ReportService
                 $expenseTotal = (float) $dayDeposits->sum('manual_expense_total');
                 $duesAdded = (float) $dayDeposits->sum('dues_added');
                 $duesRecovered = (float) $dayDeposits->sum('dues_recovered');
+                $duesDiscounted = (float) ($duesDiscountedByMonth[$monthKey] ?? 0);
                 $salesTotal = max(0, $grossSales - $duesAdded + $duesRecovered);
                 $cashCollected = max(0, (float) $dayDeposits->sum('amount_collected_from_staff'));
                 $manualCashAfterExpenseAndDue = max(0, $salesTotal - $expenseTotal);
@@ -944,6 +958,7 @@ class ReportService
                 }
                 $row['dues_added'] = (float) ($duesAddedByMonth[$monthKey] ?? ($row['dues_added'] + $duesAdded));
                 $row['dues_recovered'] = (float) ($duesRecoveredByMonth[$monthKey] ?? ($row['dues_recovered'] + $duesRecovered));
+                $row['dues_discounted'] = (float) ($duesDiscountedByMonth[$monthKey] ?? ($row['dues_discounted'] + $duesDiscounted));
                 $row['net_profit'] += $netProfit;
                 $row['commission_estimate'] += $commissionEstimate;
 
@@ -960,7 +975,8 @@ class ReportService
                 $row['capital_installments_paid'] = (float) ($capitalPaidByMonth[$monthKey] ?? 0);
                 $row['dues_added'] = (float) ($duesAddedByMonth[$monthKey] ?? $row['dues_added']);
                 $row['dues_recovered'] = (float) ($duesRecoveredByMonth[$monthKey] ?? $row['dues_recovered']);
-                $row['dues_net_change'] = $row['dues_added'] - $row['dues_recovered'];
+                $row['dues_discounted'] = (float) ($duesDiscountedByMonth[$monthKey] ?? $row['dues_discounted']);
+                $row['dues_net_change'] = $row['dues_added'] - $row['dues_recovered'] - $row['dues_discounted'];
                 $row['bank_deposit_amount'] = (float) ($bankDepositsByMonth[$monthKey] ?? 0);
                 $row['system_days'] = $row['month']->daysInMonth - $row['manual_days'];
             }
@@ -971,11 +987,13 @@ class ReportService
 
             $duesAddedToDate += (float) $row['dues_added'];
             $duesRecoveredToDate += (float) $row['dues_recovered'];
+            $duesDiscountedToDate += (float) $row['dues_discounted'];
             $row['dues'] = [
                 'as_of' => $monthEnd->toDateString(),
                 'added_to_date' => round($duesAddedToDate, 2),
                 'recovered_to_date' => round($duesRecoveredToDate, 2),
-                'balance_total' => round(max(0, $duesAddedToDate - $duesRecoveredToDate), 2),
+                'discounted_to_date' => round($duesDiscountedToDate, 2),
+                'balance_total' => round(max(0, $duesAddedToDate - $duesRecoveredToDate - $duesDiscountedToDate), 2),
             ];
 
             $months->put($monthKey, $this->roundYearlyMonth($row));
@@ -1026,8 +1044,9 @@ class ReportService
             'capital_installments_paid_from_business' => 0.0,
             'dues_added' => 0.0,
             'dues_recovered' => 0.0,
+            'dues_discounted' => 0.0,
             'dues_net_change' => 0.0,
-            'dues' => ['balance_total' => 0.0],
+            'dues' => ['discounted_to_date' => 0.0, 'balance_total' => 0.0],
             'net_profit' => 0.0,
             'commission_distribution_base' => 0.0,
             'bank_deposit_amount' => 0.0,
@@ -1064,6 +1083,7 @@ class ReportService
             'capital_installments_paid',
             'dues_added',
             'dues_recovered',
+            'dues_discounted',
             'dues_net_change',
             'net_profit',
             'commission_distribution_base',
@@ -1150,6 +1170,19 @@ class ReportService
 
         return $this->monthAmountMap($ledger, 'payment_date', 'amount')
             ->mergeRecursive($this->monthAmountMap($fallback, 'deposit_date', 'dues_recovered'))
+            ->map(fn ($amount): float => round((float) collect($amount)->flatten()->sum(), 2))
+            ->all();
+    }
+
+    private function duesDiscountedByMonth(Carbon $start, Carbon $end): array
+    {
+        return $this->monthAmountMap(
+            CustomerDuePayment::query()
+                ->whereBetween('payment_date', [$start->toDateString(), $end->toDateString()])
+                ->get(['payment_date', 'discount_amount']),
+            'payment_date',
+            'discount_amount',
+        )
             ->map(fn ($amount): float => round((float) collect($amount)->flatten()->sum(), 2))
             ->all();
     }
@@ -1326,12 +1359,16 @@ class ReportService
                 ->whereDate('deposit_date', '<=', $asOfDate)
                 ->whereDoesntHave('customerDuePayments')
                 ->sum('dues_recovered');
+        $discounted = (float) CustomerDuePayment::query()
+            ->whereDate('payment_date', '<=', $asOfDate)
+            ->sum('discount_amount');
 
         return [
             'as_of' => $asOfDate,
             'added_to_date' => round($added, 2),
             'recovered_to_date' => round($recovered, 2),
-            'balance_total' => round(max(0, $added - $recovered), 2),
+            'discounted_to_date' => round($discounted, 2),
+            'balance_total' => round(max(0, $added - $recovered - $discounted), 2),
         ];
     }
 
@@ -1408,6 +1445,7 @@ class ReportService
         $totalCollection = 0.0;
         $duesAdded = 0.0;
         $duesRecovered = 0.0;
+        $duesDiscounted = 0.0;
         $expenseTotal = 0.0;
         $netProfit = 0.0;
         $staffCommission = 0.0;
@@ -1424,6 +1462,7 @@ class ReportService
                 $totalCollection += (float) $daily['total_collection'];
                 $duesAdded += (float) $daily['dues_added'];
                 $duesRecovered += (float) $daily['dues_recovered'];
+                $duesDiscounted += (float) $daily['dues_discounted'];
                 $expenseTotal += (float) $daily['expense_total'];
                 $netProfit += (float) $daily['net_cash_profit'];
                 $staffCommission += (float) $daily['staff_share_estimate'];
@@ -1446,6 +1485,7 @@ class ReportService
             'total_collection' => round($totalCollection, 2),
             'dues_added' => round($duesAdded, 2),
             'dues_recovered' => round($duesRecovered, 2),
+            'dues_discounted' => round($duesDiscounted, 2),
             'dues_balance_total' => round((float) $this->duesSummary($asOfDate)['balance_total'], 2),
             'expense_total' => round($expenseTotal, 2),
             'staff_commission' => round($staffCommission, 2),

@@ -25,6 +25,9 @@ class CustomerDueInfolist
                 TextEntry::make('total_paid')
                     ->label('Paid')
                     ->formatStateUsing(fn ($state): string => self::money($state)),
+                TextEntry::make('total_discounted')
+                    ->label('Discounted')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
                 TextEntry::make('balance_due')
                     ->label('Balance due')
                     ->formatStateUsing(fn ($state): string => self::money($state)),
@@ -41,11 +44,15 @@ class CustomerDueInfolist
                             ->date()
                             ->placeholder('-'),
                         TextEntry::make('amount')
+                            ->label('Amount paid')
+                            ->formatStateUsing(fn ($state): string => self::money($state)),
+                        TextEntry::make('discount_amount')
+                            ->label('Discount')
                             ->formatStateUsing(fn ($state): string => self::money($state)),
                     ])
                     ->columns([
                         'default' => 1,
-                        'md' => 3,
+                        'md' => 4,
                     ])
                     ->columnSpanFull(),
                 RepeatableEntry::make('payments')

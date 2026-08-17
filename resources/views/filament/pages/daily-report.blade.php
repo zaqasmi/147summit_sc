@@ -25,6 +25,7 @@
             ['label' => 'Table sales', 'amount' => $report['sales_total'], 'tone' => 'teal'],
             ['label' => 'Counter cash', 'amount' => $report['counter_cash_collected'], 'tone' => 'green'],
             ['label' => 'Dues recovered', 'amount' => $report['dues_recovered'], 'tone' => 'green'],
+            ['label' => 'Dues discounted', 'amount' => $report['dues_discounted'], 'tone' => 'amber'],
             ['label' => 'Expenses', 'amount' => $report['expense_total'], 'tone' => 'rose'],
             ['label' => 'Staff paid', 'amount' => $report['staff_paid_total'], 'tone' => 'amber'],
             ['label' => 'Net cash profit', 'amount' => $report['net_cash_profit'], 'tone' => 'amber'],
@@ -89,6 +90,7 @@
                 <div><dt>Expense total</dt><dd class="summit-money font-semibold">{{ $this->money($report['expense_total']) }}</dd></div>
                 <div><dt>New dues today</dt><dd class="summit-money font-semibold">{{ $this->money($report['dues_added']) }}</dd></div>
                 <div><dt>Dues recovered today</dt><dd class="summit-money font-semibold">{{ $this->money($report['dues_recovered']) }}</dd></div>
+                <div><dt>Dues discounted today</dt><dd class="summit-money font-semibold">{{ $this->money($report['dues_discounted']) }}</dd></div>
                 <div><dt>Net dues change</dt><dd class="summit-money font-semibold">{{ $this->money($report['dues_net_change']) }}</dd></div>
                 <div><dt>Total dues till now</dt><dd class="summit-money font-semibold">{{ $this->money($report['dues']['balance_total']) }}</dd></div>
                 <div><dt>Staff paid recorded</dt><dd class="summit-money font-semibold">{{ $this->money($report['staff_paid_total']) }}</dd></div>

@@ -68,11 +68,15 @@ class CashDepositInfolist
                         TextEntry::make('payment_date')
                             ->date(),
                         TextEntry::make('amount')
+                            ->label('Amount paid')
+                            ->formatStateUsing(fn ($state): string => 'Rs '.number_format((float) $state, 2)),
+                        TextEntry::make('discount_amount')
+                            ->label('Discount')
                             ->formatStateUsing(fn ($state): string => 'Rs '.number_format((float) $state, 2)),
                     ])
                     ->columns([
                         'default' => 1,
-                        'md' => 3,
+                        'md' => 4,
                     ])
                     ->columnSpanFull(),
                 RepeatableEntry::make('expenses')

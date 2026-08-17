@@ -17,6 +17,7 @@ class CustomerDue extends Model
         'opening_balance',
         'total_charged',
         'total_paid',
+        'total_discounted',
         'balance_due',
         'notes',
     ];
@@ -27,6 +28,7 @@ class CustomerDue extends Model
             'opening_balance' => 'decimal:2',
             'total_charged' => 'decimal:2',
             'total_paid' => 'decimal:2',
+            'total_discounted' => 'decimal:2',
             'balance_due' => 'decimal:2',
         ];
     }
@@ -72,12 +74,14 @@ class CustomerDue extends Model
 
         $charged = (float) $this->charges()->sum('amount');
         $paid = (float) $this->payments()->sum('amount');
+        $discounted = (float) $this->payments()->sum('discount_amount');
         $totalDue = (float) $this->opening_balance + $charged;
 
         return $this->forceFill([
             'total_charged' => round($charged, 2),
             'total_paid' => round($paid, 2),
-            'balance_due' => round(max(0, $totalDue - $paid), 2),
+            'total_discounted' => round($discounted, 2),
+            'balance_due' => round(max(0, $totalDue - $paid - $discounted), 2),
         ])->saveQuietly();
     }
 }

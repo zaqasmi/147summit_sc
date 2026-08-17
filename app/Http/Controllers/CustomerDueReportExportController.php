@@ -9,7 +9,7 @@ class CustomerDueReportExportController extends Controller
 {
     public function __invoke(CustomerDuePdfReport $report): Response
     {
-        abort_unless(auth()->user()?->isAdmin(), 403);
+        abort_unless(auth()->user()?->canViewCustomerDues(), 403);
 
         $filename = 'customer-dues-report-'.now()->format('Y-m-d').'.pdf';
 

@@ -2,10 +2,12 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\VisitorVisit;
 use App\Services\ReportService;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class CompactFinancialOverview extends Widget
 {
@@ -40,6 +42,7 @@ class CompactFinancialOverview extends Widget
         $staffBalanceDescription = $staffBalance >= 0
             ? 'Remaining commission to pay.'
             : 'Advance overpaid; carry forward to next closing.';
+        $visitorStats = $this->visitorStats($selectedDate);
         $label = 'Till '.$selectedDate->format('d M Y');
 
         return [
@@ -51,6 +54,7 @@ class CompactFinancialOverview extends Widget
                 $this->stat('Salesmen commission', $business['staff_commission'], 'Commission earned from cash profit.', 'heroicon-o-receipt-percent', 'warning'),
                 $this->stat('My profit', $business['my_profit'], 'Owner profit after expenses and staff commission.', 'heroicon-o-arrow-trending-up', ((float) $business['my_profit']) >= 0 ? 'success' : 'danger'),
                 $this->stat('Dues balance', $business['dues_balance_total'], 'Customer amount still pending.', 'heroicon-o-user-minus', ((float) $business['dues_balance_total']) > 0 ? 'danger' : 'success'),
+                $this->stat('Website visits', $visitorStats['visits'], 'Public page views. Unique visitors: '.number_format($visitorStats['unique_visitors']).'.', 'heroicon-o-eye', 'info', asMoney: false),
             ],
             'sections' => [
                 [
@@ -164,6 +168,30 @@ class CompactFinancialOverview extends Widget
         } catch (\Throwable) {
             return today();
         }
+    }
+
+    /**
+     * @return array{visits: int, unique_visitors: int}
+     */
+    private function visitorStats(Carbon $selectedDate): array
+    {
+        if (! Schema::hasTable('visitor_visits')) {
+            return [
+                'visits' => 0,
+                'unique_visitors' => 0,
+            ];
+        }
+
+        $query = VisitorVisit::query()
+            ->whereDate('visited_at', '<=', $selectedDate->toDateString());
+
+        return [
+            'visits' => (clone $query)->count(),
+            'unique_visitors' => (clone $query)
+                ->whereNotNull('visitor_hash')
+                ->distinct('visitor_hash')
+                ->count('visitor_hash'),
+        ];
     }
 
     private function money(float|int|string|null $amount): string

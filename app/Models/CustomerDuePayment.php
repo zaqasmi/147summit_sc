@@ -15,6 +15,7 @@ class CustomerDuePayment extends Model
         'cash_deposit_id',
         'payment_date',
         'amount',
+        'discount_amount',
         'notes',
     ];
 
@@ -23,6 +24,7 @@ class CustomerDuePayment extends Model
         return [
             'payment_date' => 'date',
             'amount' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
         ];
     }
 

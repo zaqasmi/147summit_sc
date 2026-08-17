@@ -141,18 +141,28 @@ class CashDeposit extends Model
         $this->customerDueCharges()->delete();
 
         collect($this->customer_dues ?? [])
-            ->map(fn (array $row): array => [
-                'customer_name' => trim((string) ($row['customer_name'] ?? '')),
-                'amount' => round((float) ($row['amount'] ?? 0), 2),
-            ])
-            ->filter(fn (array $row): bool => $row['customer_name'] !== '' && $row['amount'] > 0)
-            ->groupBy(fn (array $row): string => mb_strtolower($row['customer_name']))
+            ->map(function (array $row): array {
+                $customerDueId = $row['customer_due_id'] ?? null;
+                $customerName = trim((string) ($row['customer_name'] ?? ''));
+                $customerDue = $customerDueId ? CustomerDue::query()->find($customerDueId) : null;
+
+                if (! $customerDue && $customerName !== '') {
+                    $customerDue = CustomerDue::findOrCreateByName($customerName);
+                }
+
+                return [
+                    'customer_due_id' => $customerDue?->id,
+                    'customer_name' => $customerDue?->customer_name ?? $customerName,
+                    'amount' => round((float) ($row['amount'] ?? 0), 2),
+                ];
+            })
+            ->filter(fn (array $row): bool => filled($row['customer_due_id']) && $row['amount'] > 0)
+            ->groupBy(fn (array $row): int => (int) $row['customer_due_id'])
             ->each(function ($rows): void {
                 $firstRow = $rows->first();
-                $customerDue = CustomerDue::findOrCreateByName($firstRow['customer_name']);
 
                 $this->customerDueCharges()->create([
-                    'customer_due_id' => $customerDue->id,
+                    'customer_due_id' => $firstRow['customer_due_id'],
                     'charge_date' => $this->deposit_date?->toDateString() ?? today()->toDateString(),
                     'amount' => round((float) $rows->sum('amount'), 2),
                     'notes' => 'Daily closing due',

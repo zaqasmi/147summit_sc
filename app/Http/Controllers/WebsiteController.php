@@ -13,9 +13,11 @@ use App\Models\Sponsor;
 use App\Models\Tournament;
 use App\Models\TournamentMatch;
 use App\Models\TournamentPlayer;
+use App\Models\VisitorVisit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
@@ -23,6 +25,8 @@ class WebsiteController extends Controller
 {
     public function home(): View
     {
+        $this->recordVisit('website.home');
+
         if (! $this->tablesReady([
             'club_settings',
             'homepage_slides',
@@ -107,6 +111,8 @@ class WebsiteController extends Controller
 
     public function tournaments(): View
     {
+        $this->recordVisit('website.tournaments');
+
         return view('website.tournaments', [
             'settings' => $this->settings(),
             'tournaments' => Tournament::query()
@@ -119,6 +125,8 @@ class WebsiteController extends Controller
 
     public function about(): View
     {
+        $this->recordVisit('website.about');
+
         return view('website.about', [
             'settings' => $this->settings(),
             'about' => $this->aboutContent(),
@@ -128,6 +136,8 @@ class WebsiteController extends Controller
     public function tournament(Tournament $tournament): View
     {
         abort_unless($tournament->is_published, 404);
+
+        $this->recordVisit('website.tournament');
 
         return view('website.tournament-show', [
             'settings' => $this->settings(),
@@ -160,6 +170,8 @@ class WebsiteController extends Controller
     {
         abort_unless($newsPost->is_published, 404);
 
+        $this->recordVisit('website.news');
+
         return view('website.news-show', [
             'settings' => $this->settings(),
             'post' => $newsPost,
@@ -169,6 +181,8 @@ class WebsiteController extends Controller
     public function page(CmsPage $cmsPage): View
     {
         abort_unless($cmsPage->is_published, 404);
+
+        $this->recordVisit('website.page');
 
         return view('website.page-show', [
             'settings' => $this->settings(),
@@ -203,6 +217,40 @@ class WebsiteController extends Controller
             ->pluck('value', 'key')
             ->map(fn (?string $value): string => (string) $value)
             ->all();
+    }
+
+    private function recordVisit(string $routeName): void
+    {
+        if (auth()->check() || ! Schema::hasTable('visitor_visits')) {
+            return;
+        }
+
+        try {
+            VisitorVisit::query()->create([
+                'route_name' => $routeName,
+                'path' => request()->path(),
+                'visitor_hash' => $this->visitorHash(),
+                'user_agent' => str(request()->userAgent() ?? '')->limit(500, '')->toString(),
+                'referrer' => str((string) request()->headers->get('referer'))->limit(500, '')->toString(),
+                'visited_at' => now(),
+            ]);
+        } catch (\Throwable $exception) {
+            Log::debug('Unable to record website visit.', [
+                'route' => $routeName,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function visitorHash(): ?string
+    {
+        $ip = request()->ip();
+
+        if (blank($ip)) {
+            return null;
+        }
+
+        return hash('sha256', $ip.'|'.config('app.key'));
     }
 
     /**

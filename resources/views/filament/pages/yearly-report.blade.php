@@ -53,6 +53,7 @@
             <div><dt>Construction balance</dt><dd class="summit-money font-semibold">{{ $this->money($report['construction_deductions']['balance_total']) }}</dd></div>
             <div><dt>New dues this year</dt><dd class="summit-money font-semibold">{{ $this->money($report['dues_added']) }}</dd></div>
             <div><dt>Dues recovered this year</dt><dd class="summit-money font-semibold">{{ $this->money($report['dues_recovered']) }}</dd></div>
+            <div><dt>Dues discounted this year</dt><dd class="summit-money font-semibold">{{ $this->money($report['dues_discounted']) }}</dd></div>
             <div><dt>Net dues change</dt><dd class="summit-money font-semibold">{{ $this->money($report['dues_net_change']) }}</dd></div>
             <div><dt>Total dues till now</dt><dd class="summit-money font-semibold">{{ $this->money($report['dues']['balance_total']) }}</dd></div>
         </dl>
@@ -151,6 +152,7 @@
                         <th class="px-4 py-3 summit-money">Sales</th>
                         <th class="px-4 py-3 summit-money">New dues</th>
                         <th class="px-4 py-3 summit-money">Recovered</th>
+                        <th class="px-4 py-3 summit-money">Discounted</th>
                         <th class="px-4 py-3 summit-money">Net dues</th>
                         <th class="px-4 py-3 summit-money">Outstanding</th>
                     </tr>
@@ -162,6 +164,7 @@
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($month['sales_total']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($month['dues_added']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($month['dues_recovered']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($month['dues_discounted']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($month['dues_net_change']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($month['dues']['balance_total']) }}</td>
                         </tr>

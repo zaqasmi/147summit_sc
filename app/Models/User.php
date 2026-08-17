@@ -57,6 +57,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->isAdmin() || $this->isSaleManager();
     }
 
+    public function canViewCustomerDues(): bool
+    {
+        return $this->isAdmin() || $this->isSaleManager();
+    }
+
     /**
      * @return array<string, string>
      */

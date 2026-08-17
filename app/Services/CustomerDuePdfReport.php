@@ -58,8 +58,8 @@ class CustomerDuePdfReport
         $content[] = $this->text('Generated: '.now()->format('d M Y h:i A'), 36, 530, 9);
         $content[] = $this->text('Page '.$pageNumber, 760, 530, 9);
 
-        $headers = ['Customer', 'Opening', 'Dues added', 'Paid', 'Balance due'];
-        $widths = [270, 120, 130, 120, 130];
+        $headers = ['Customer', 'Opening', 'Dues added', 'Paid', 'Discount', 'Balance due'];
+        $widths = [220, 110, 120, 110, 110, 100];
         $x = self::MARGIN;
         $y = 500;
 
@@ -74,10 +74,11 @@ class CustomerDuePdfReport
         foreach ($rows as $row) {
             $x = self::MARGIN;
             $values = [
-                $this->truncate($row->customer_name, 34),
+                $this->truncate($row->customer_name, 28),
                 $this->money($row->opening_balance),
                 $this->money($row->total_charged),
                 $this->money($row->total_paid),
+                $this->money($row->total_discounted),
                 $this->money($row->balance_due),
             ];
 
@@ -97,6 +98,7 @@ class CustomerDuePdfReport
                 $this->money($allRows->sum(fn (CustomerDue $due): float => (float) $due->opening_balance)),
                 $this->money($allRows->sum(fn (CustomerDue $due): float => (float) $due->total_charged)),
                 $this->money($allRows->sum(fn (CustomerDue $due): float => (float) $due->total_paid)),
+                $this->money($allRows->sum(fn (CustomerDue $due): float => (float) $due->total_discounted)),
                 $this->money($allRows->sum(fn (CustomerDue $due): float => (float) $due->balance_due)),
             ];
 

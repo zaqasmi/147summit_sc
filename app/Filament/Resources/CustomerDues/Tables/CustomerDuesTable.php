@@ -41,6 +41,11 @@ class CustomerDuesTable
                     ->formatStateUsing(fn ($state): string => self::money($state))
                     ->summarize(self::moneyTotal())
                     ->sortable(),
+                TextColumn::make('total_discounted')
+                    ->label('Discounted')
+                    ->formatStateUsing(fn ($state): string => self::money($state))
+                    ->summarize(self::moneyTotal())
+                    ->sortable(),
                 TextColumn::make('balance_due')
                     ->label('Balance due')
                     ->formatStateUsing(fn ($state): string => self::money($state))
@@ -58,12 +63,14 @@ class CustomerDuesTable
             ])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
-                ]),
+                ])
+                    ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
             ]);
     }
 

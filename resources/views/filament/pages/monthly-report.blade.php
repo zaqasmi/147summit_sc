@@ -30,6 +30,7 @@
         @foreach ([
             ['label' => 'Overall commission rate', 'value' => $this->percent($report['overall_commission_rate']), 'tone' => 'amber'],
             ['label' => 'Cash collected', 'value' => $this->money($report['cash_collected']), 'tone' => 'green'],
+            ['label' => 'Dues discounted', 'value' => $this->money($report['dues_discounted']), 'tone' => 'amber'],
             ['label' => 'Monthly rent', 'value' => $this->money($report['rent_expense_total']), 'tone' => 'rose'],
             ['label' => 'Distribution base after rent', 'value' => $this->money($report['commission_distribution_base']), 'tone' => 'teal'],
             ['label' => 'Monthly commission to be paid', 'value' => $this->money($commission['monthly_commission_to_be_paid']), 'tone' => 'teal'],

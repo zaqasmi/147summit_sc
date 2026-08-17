@@ -7,6 +7,7 @@ use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\TournamentMatchFrame;
 use App\Models\TournamentPlayer;
+use App\Models\VisitorVisit;
 use App\Services\TournamentDrawService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -179,6 +180,20 @@ class TournamentManagementTest extends TestCase
         $this->assertDatabaseHas('contact_messages', [
             'name' => 'Visitor',
             'status' => 'new',
+        ]);
+        $this->assertSame(3, VisitorVisit::query()->count());
+        $this->assertSame(1, VisitorVisit::query()->distinct('visitor_hash')->count('visitor_hash'));
+        $this->assertDatabaseHas('visitor_visits', [
+            'route_name' => 'website.home',
+            'path' => '/',
+        ]);
+        $this->assertDatabaseHas('visitor_visits', [
+            'route_name' => 'website.about',
+            'path' => 'about',
+        ]);
+        $this->assertDatabaseHas('visitor_visits', [
+            'route_name' => 'website.tournament',
+            'path' => 'tournaments/public-open',
         ]);
     }
 }

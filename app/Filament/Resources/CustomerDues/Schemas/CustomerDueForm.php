@@ -42,6 +42,11 @@ class CustomerDueForm
                             ->prefix('Rs')
                             ->readOnly()
                             ->dehydrated(false),
+                        TextInput::make('total_discounted')
+                            ->label('Discounted')
+                            ->prefix('Rs')
+                            ->readOnly()
+                            ->dehydrated(false),
                         TextInput::make('balance_due')
                             ->label('Balance due')
                             ->prefix('Rs')

@@ -19,7 +19,8 @@ class ListCustomerDues extends ListRecords
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('gray')
                 ->url(fn (): string => route('customer-dues.export-pdf')),
-            CreateAction::make(),
+            CreateAction::make()
+                ->visible(fn (): bool => CustomerDueResource::canCreate()),
         ];
     }
 }

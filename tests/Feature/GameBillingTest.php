@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Filament\Pages\DailyReport;
 use App\Filament\Pages\MonthlyReport;
 use App\Filament\Pages\YearlyReport;
+use App\Filament\Resources\CustomerDues\CustomerDueResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\GameAddOns\GameAddOnResource;
 use App\Filament\Resources\GameParticipants\GameParticipantResource;
@@ -1623,6 +1624,50 @@ class GameBillingTest extends TestCase
         $this->assertSame(1, $due->charges()->count());
     }
 
+    public function test_customer_due_rows_can_reference_selected_customer_due_records(): void
+    {
+        $due = CustomerDue::create([
+            'customer_name' => 'Selected Player',
+            'opening_balance' => 0,
+        ]);
+
+        CashDeposit::create([
+            'deposit_date' => '2026-07-03',
+            'closing_source' => 'manual',
+            'opening_petty_cash' => 0,
+            'manual_table_1_sale' => 500,
+            'customer_dues' => [
+                [
+                    'customer_due_id' => $due->id,
+                    'customer_name' => 'Typed fallback name',
+                    'amount' => 180,
+                ],
+                [
+                    'customer_due_id' => $due->id,
+                    'customer_name' => 'Selected Player',
+                    'amount' => 20,
+                ],
+            ],
+            'dues_added' => 200,
+            'dues_recovered' => 0,
+            'cash_collected_from_counter' => 300,
+            'amount_collected_from_staff' => 300,
+            'petty_cash_kept' => 0,
+            'bank_deposit_amount' => 300,
+        ]);
+
+        $this->assertSame(1, CustomerDueCharge::query()->where('customer_due_id', $due->id)->count());
+        $this->assertDatabaseHas('customer_due_charges', [
+            'customer_due_id' => $due->id,
+            'amount' => 200,
+            'notes' => 'Daily closing due',
+        ]);
+        $this->assertDatabaseMissing('customer_dues', [
+            'customer_name' => 'Typed fallback name',
+        ]);
+        $this->assertSame('200.00', $due->refresh()->balance_due);
+    }
+
     public function test_customer_due_payment_from_daily_closing_adds_cash_and_updates_balance(): void
     {
         foreach ([1, 2, 3, 4] as $number) {
@@ -1666,6 +1711,61 @@ class GameBillingTest extends TestCase
         $this->assertSame(1100.0, $daily['net_cash_profit']);
         $this->assertSame(275.0, $daily['staff_share_estimate']);
         $this->assertSame(825.0, $daily['owner_profit_after_staff_share']);
+    }
+
+    public function test_customer_due_discount_clears_remaining_balance_without_counting_as_cash(): void
+    {
+        foreach ([1, 2, 3, 4] as $number) {
+            SnookerTable::create([
+                'number' => $number,
+                'name' => 'Table '.$number,
+                'hourly_rate' => 10,
+            ]);
+        }
+
+        $due = CustomerDue::create([
+            'customer_name' => 'Appreciation Customer',
+            'opening_balance' => 2050,
+        ]);
+
+        $closing = CashDeposit::create([
+            'deposit_date' => '2026-07-04',
+            'closing_source' => 'manual',
+            'opening_petty_cash' => 0,
+            'manual_table_1_sale' => 0,
+            'dues_added' => 0,
+            'dues_recovered' => 200,
+            'cash_collected_from_counter' => 200,
+            'amount_collected_from_staff' => 200,
+            'petty_cash_kept' => 0,
+            'bank_deposit_amount' => 200,
+        ]);
+
+        CustomerDuePayment::create([
+            'customer_due_id' => $due->id,
+            'cash_deposit_id' => $closing->id,
+            'payment_date' => '2026-07-04',
+            'amount' => 200,
+            'discount_amount' => 1850,
+        ]);
+
+        $daily = app(ReportService::class)->daily('2026-07-04');
+        $monthly = app(ReportService::class)->monthly('2026-07');
+        $summary = app(ReportService::class)->duesSummary('2026-07-04');
+
+        $this->assertSame('200.00', $due->refresh()->total_paid);
+        $this->assertSame('1850.00', $due->total_discounted);
+        $this->assertSame('0.00', $due->balance_due);
+        $this->assertSame(200.0, $daily['dues_recovered']);
+        $this->assertSame(1850.0, $daily['dues_discounted']);
+        $this->assertSame(-2050.0, $daily['dues_net_change']);
+        $this->assertSame(200.0, $daily['cash_collected']);
+        $this->assertSame(200.0, $daily['net_cash_profit']);
+        $this->assertSame(200.0, $summary['recovered_to_date']);
+        $this->assertSame(1850.0, $summary['discounted_to_date']);
+        $this->assertSame(0.0, $summary['balance_total']);
+        $this->assertSame(1850.0, $monthly['dues_discounted']);
+        $this->assertSame(0.0, $monthly['dues']['balance_total']);
     }
 
     public function test_dues_summary_uses_customer_due_ledger_rows_when_closing_totals_are_stale(): void
@@ -1872,6 +1972,10 @@ class GameBillingTest extends TestCase
             'amount' => 100,
             'paid_from' => 'cash',
         ]);
+        $customerDue = CustomerDue::create([
+            'customer_name' => 'Read Only Due Customer',
+            'opening_balance' => 500,
+        ]);
 
         $this->actingAs($saleManager);
 
@@ -1885,9 +1989,19 @@ class GameBillingTest extends TestCase
         $this->assertFalse(GameAddOnResource::canCreate());
         $this->assertFalse(ExpenseResource::canCreate());
         $this->assertFalse(ExpenseResource::canEdit($expense));
+        $this->assertTrue(CustomerDueResource::canAccess());
+        $this->assertTrue(CustomerDueResource::canView($customerDue));
+        $this->assertFalse(CustomerDueResource::canCreate());
+        $this->assertFalse(CustomerDueResource::canEdit($customerDue));
+        $this->assertFalse(CustomerDueResource::canDelete($customerDue));
+        $this->assertFalse(CustomerDueResource::canDeleteAny());
         $this->assertFalse(DailyReport::canAccess());
         $this->assertTrue(MonthlyReport::canAccess());
         $this->assertTrue(YearlyReport::canAccess());
+
+        $this->get(route('customer-dues.export-pdf'))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
 
         $this->actingAs($admin);
 
@@ -1901,6 +2015,11 @@ class GameBillingTest extends TestCase
         $this->assertTrue(GameAddOnResource::canCreate());
         $this->assertTrue(ExpenseResource::canCreate());
         $this->assertTrue(ExpenseResource::canEdit($expense));
+        $this->assertTrue(CustomerDueResource::canAccess());
+        $this->assertTrue(CustomerDueResource::canCreate());
+        $this->assertTrue(CustomerDueResource::canEdit($customerDue));
+        $this->assertTrue(CustomerDueResource::canDelete($customerDue));
+        $this->assertTrue(CustomerDueResource::canDeleteAny());
         $this->assertTrue(DailyReport::canAccess());
         $this->assertTrue(MonthlyReport::canAccess());
         $this->assertTrue(YearlyReport::canAccess());
