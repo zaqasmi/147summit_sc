@@ -15,21 +15,35 @@ class PublicStorageUrl
         }
 
         if (is_array($path)) {
-            $path = Arr::first($path, fn (mixed $value): bool => filled($value));
+            return self::make(Arr::first($path, fn (mixed $value): bool => filled($value)));
         }
 
         if (! is_string($path) && ! $path instanceof Stringable) {
             return null;
         }
 
-        $path = trim((string) $path);
+        $path = str_replace('\\', '/', trim((string) $path));
 
         if ($path === '') {
             return null;
         }
 
+        $decodedPath = json_decode($path, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && (is_array($decodedPath) || is_string($decodedPath))) {
+            return self::make($decodedPath);
+        }
+
         if (Str::startsWith($path, ['http://', 'https://'])) {
             return $path;
+        }
+
+        foreach (['storage/app/public/', 'public/storage/'] as $segment) {
+            if (Str::contains($path, $segment)) {
+                $path = Str::after($path, $segment);
+
+                break;
+            }
         }
 
         $isAbsolutePath = Str::startsWith($path, '/');
@@ -47,6 +61,6 @@ class PublicStorageUrl
             }
         } while ($path !== $originalPath);
 
-        return $path === '' ? null : asset('storage/'.$path);
+        return $path === '' ? null : '/storage/'.$path;
     }
 }

@@ -98,7 +98,6 @@ class WebsiteController extends Controller
                 ->where('is_active', true)
                 ->orderBy('sort_order')
                 ->orderBy('name')
-                ->limit(8)
                 ->get(),
             'pages' => CmsPage::query()
                 ->where('is_published', true)

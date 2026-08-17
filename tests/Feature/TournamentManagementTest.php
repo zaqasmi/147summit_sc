@@ -165,6 +165,14 @@ class TournamentManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        foreach (['Assistant Manager', 'Tournament Desk', 'Media Lead'] as $name) {
+            ManagementTeamMember::create([
+                'name' => $name,
+                'role_title' => 'Management team',
+                'is_active' => true,
+            ]);
+        }
+
         $this->get(route('website.home'))
             ->assertOk()
             ->assertSee('Public Open')
@@ -174,7 +182,8 @@ class TournamentManagementTest extends TestCase
             ->assertSee('Summit Partner')
             ->assertSee('storage/cms/sponsors/summit-partner.png', false)
             ->assertSee('Club Manager')
-            ->assertSee('storage/cms/team/club-manager.jpg', false);
+            ->assertSee('storage/cms/team/club-manager.jpg', false)
+            ->assertSee('Media Lead');
 
         $this->get(route('website.about'))
             ->assertOk()

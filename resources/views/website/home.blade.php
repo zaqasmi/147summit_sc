@@ -268,7 +268,7 @@
             </div>
 
             <div class="grid three">
-                @foreach ($sponsors->take(3) as $sponsor)
+                @foreach ($sponsors as $sponsor)
                     @php($logo = $sponsor->logo_url)
                     <article class="card">
                         @if ($logo)
@@ -279,7 +279,7 @@
                     </article>
                 @endforeach
 
-                @foreach ($teamMembers->take(3) as $member)
+                @foreach ($teamMembers as $member)
                     @php($photo = $member->photo_url)
                     <article class="card">
                         @if ($photo)
