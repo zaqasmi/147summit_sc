@@ -5,8 +5,8 @@ namespace App\Filament\Resources\BankTransactions\Schemas;
 use App\Models\BankTransaction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -30,10 +30,11 @@ class BankTransactionForm
                             ->default(today())
                             ->required(),
                         Select::make('entry_side')
-                            ->label('Debit / Credit')
+                            ->label('Movement')
                             ->options([
                                 'credit' => 'Credit - money in bank',
                                 'debit' => 'Debit - money out of bank',
+                                'cash' => 'Pending cash adjustment - no bank effect',
                             ])
                             ->default('credit')
                             ->live()
@@ -54,7 +55,7 @@ class BankTransactionForm
                             ->required()
                             ->searchable()
                             ->default('daily_collection_deposit')
-                            ->helperText('Use Cash collection deposit on the date money actually reached the bank, even if it covers multiple closing days.'),
+                            ->helperText('Use Cash collection deposit when money reaches bank. Use pending cash adjustment only for opening/reconciliation cash still outside bank.'),
                         TextInput::make('amount')
                             ->prefix('Rs')
                             ->required()

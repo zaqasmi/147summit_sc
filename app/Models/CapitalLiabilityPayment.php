@@ -47,9 +47,7 @@ class CapitalLiabilityPayment extends Model
     {
         return [
             'cash' => 'Cash from collection',
-            'petty_cash' => 'Petty cash',
             'bank' => 'Bank',
-            'owner' => 'Owner / other source',
         ];
     }
 

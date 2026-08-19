@@ -71,8 +71,7 @@
                 Paid from
                 <select wire:model.live="rentPaidFrom" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input">
                     <option value="bank">Bank</option>
-                    <option value="cash">Cash</option>
-                    <option value="other_account">Other account</option>
+                    <option value="cash">Cash from collection</option>
                 </select>
             </label>
             <label class="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">

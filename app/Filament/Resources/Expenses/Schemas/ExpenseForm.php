@@ -70,8 +70,7 @@ class ExpenseForm
                         Select::make('paid_from')
                             ->label('Paid from')
                             ->options([
-                                'cash' => 'Cash',
-                                'petty_cash' => 'Petty cash',
+                                'cash' => 'Cash from collection',
                                 'bank' => 'Bank',
                             ])
                             ->required()

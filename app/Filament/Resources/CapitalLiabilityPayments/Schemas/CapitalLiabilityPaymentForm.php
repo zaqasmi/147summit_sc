@@ -54,7 +54,7 @@ class CapitalLiabilityPaymentForm
                             ->options(CapitalLiabilityPayment::paidFromOptions())
                             ->required()
                             ->default('cash')
-                            ->helperText('Cash reduces pending bank cash. Bank creates a bank debit. Owner / other source creates an Owner Capital entry for recovery tracking.'),
+                            ->helperText('Cash reduces pending bank cash. Bank creates a bank debit.'),
                         Textarea::make('notes')
                             ->columnSpanFull(),
                     ]),

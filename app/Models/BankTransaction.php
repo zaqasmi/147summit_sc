@@ -18,6 +18,10 @@ class BankTransaction extends Model
 
     public const SOURCE_MONTHLY_CLOSING = 'monthly_closing';
 
+    public const SOURCE_OPENING_BANK_BALANCE = 'opening_bank_balance';
+
+    public const SOURCE_OPENING_PENDING_CASH = 'opening_pending_cash';
+
     public const SOURCE_STAFF_TRANSACTION = 'staff_transaction';
 
     private const INFLOW_TYPES = [
@@ -38,6 +42,11 @@ class BankTransaction extends Model
         'staff_payment',
         'withdrawal',
         'adjustment_out',
+    ];
+
+    private const PENDING_CASH_TYPES = [
+        'cash_pending_adjustment_in',
+        'cash_pending_adjustment_out',
     ];
 
     protected $fillable = [
@@ -75,6 +84,8 @@ class BankTransaction extends Model
             'withdrawal' => 'Bank withdrawal',
             'adjustment_in' => 'Adjustment in',
             'adjustment_out' => 'Adjustment out',
+            'cash_pending_adjustment_in' => 'Pending cash adjustment in',
+            'cash_pending_adjustment_out' => 'Pending cash adjustment out',
         ];
     }
 
@@ -88,11 +99,18 @@ class BankTransaction extends Model
         return array_intersect_key(self::typeOptions(), array_flip(self::OUTFLOW_TYPES));
     }
 
+    public static function pendingCashTypeOptions(): array
+    {
+        return array_intersect_key(self::typeOptions(), array_flip(self::PENDING_CASH_TYPES));
+    }
+
     public static function typeOptionsForEntrySide(?string $entrySide): array
     {
-        return $entrySide === 'debit'
-            ? self::debitTypeOptions()
-            : self::creditTypeOptions();
+        return match ($entrySide) {
+            'debit' => self::debitTypeOptions(),
+            'cash' => self::pendingCashTypeOptions(),
+            default => self::creditTypeOptions(),
+        };
     }
 
     public static function defaultTypeForEntrySide(?string $entrySide): string
@@ -102,6 +120,10 @@ class BankTransaction extends Model
 
     public static function entrySideForType(?string $type): string
     {
+        if (in_array($type, self::PENDING_CASH_TYPES, true)) {
+            return 'cash';
+        }
+
         return in_array($type, self::OUTFLOW_TYPES, true) ? 'debit' : 'credit';
     }
 
@@ -244,6 +266,8 @@ class BankTransaction extends Model
             ->sum(fn (BankTransaction $transaction): float => (float) $transaction->amount), 2);
 
         $dailyDeposits = $sum(['daily_collection_deposit']);
+        $pendingCashAdjustmentIn = $sum(['cash_pending_adjustment_in']);
+        $pendingCashAdjustmentOut = $sum(['cash_pending_adjustment_out']);
         $cashCollectedFromClosings = round((float) CashDeposit::query()
             ->whereDate('deposit_date', '<=', $asOfDate)
             ->sum('amount_collected_from_staff'), 2);
@@ -272,7 +296,7 @@ class BankTransaction extends Model
             ->whereDate('month', '<=', $asOfMonth)
             ->sum('construction_received_amount'), 2);
         $cashOutflowDeductions = round($cashStaffPayments + $cashRentPayments + $cashExpensePayments + $cashInstallmentPayments + $constructionOtherAccountReceipts, 2);
-        $collectionCashPendingDeposit = round(max(0, $cashCollectedFromClosings - $cashOutflowDeductions - $dailyDeposits), 2);
+        $collectionCashPendingDeposit = round(max(0, $cashCollectedFromClosings + $pendingCashAdjustmentIn - $cashOutflowDeductions - $dailyDeposits - $pendingCashAdjustmentOut), 2);
         $otherPaymentsReceived = $sum(['other_payment_received']);
         $loanReceived = $sum(['loan_received']);
         $ownerDeposits = $sum(['owner_deposit']);
@@ -302,6 +326,8 @@ class BankTransaction extends Model
             'cash_installments_pending_deduction' => $cashInstallmentPayments,
             'construction_other_account_pending_deduction' => $constructionOtherAccountReceipts,
             'cash_outflow_pending_deductions' => $cashOutflowDeductions,
+            'pending_cash_adjustment_in' => $pendingCashAdjustmentIn,
+            'pending_cash_adjustment_out' => $pendingCashAdjustmentOut,
             'collection_cash_pending_deposit' => $collectionCashPendingDeposit,
             'daily_deposits' => $dailyDeposits,
             'other_payments_received' => $otherPaymentsReceived,
@@ -330,6 +356,7 @@ class BankTransaction extends Model
             'daily_collection_deposit', 'other_payment_received', 'loan_received', 'owner_deposit', 'adjustment_in' => 'success',
             'supplier_installment_paid', 'loan_installment_paid', 'capital_installment_paid', 'staff_payment' => 'warning',
             'expense_paid', 'rent_paid', 'supplier_payment', 'withdrawal', 'adjustment_out' => 'danger',
+            'cash_pending_adjustment_in', 'cash_pending_adjustment_out' => 'info',
             default => 'gray',
         };
     }
@@ -341,6 +368,8 @@ class BankTransaction extends Model
             self::SOURCE_CAPITAL_LIABILITY_PAYMENT => 'Capital installment',
             self::SOURCE_EXPENSE => 'Expense',
             self::SOURCE_MONTHLY_CLOSING => 'Monthly closing',
+            self::SOURCE_OPENING_BANK_BALANCE => 'Opening bank balance',
+            self::SOURCE_OPENING_PENDING_CASH => 'Opening pending cash',
             self::SOURCE_STAFF_TRANSACTION => 'Staff transaction',
         ];
     }
@@ -349,11 +378,19 @@ class BankTransaction extends Model
     {
         $amount = (float) $this->amount;
 
+        if (in_array($this->type, self::PENDING_CASH_TYPES, true)) {
+            return 0.0;
+        }
+
         return in_array($this->type, self::OUTFLOW_TYPES, true) ? -1 * $amount : $amount;
     }
 
     public function getDirectionAttribute(): string
     {
+        if (in_array($this->type, self::PENDING_CASH_TYPES, true)) {
+            return 'cash';
+        }
+
         return in_array($this->type, self::OUTFLOW_TYPES, true) ? 'out' : 'in';
     }
 
@@ -364,7 +401,11 @@ class BankTransaction extends Model
 
     public function getEntrySideLabelAttribute(): string
     {
-        return $this->entry_side === 'debit' ? 'Debit' : 'Credit';
+        return match ($this->entry_side) {
+            'debit' => 'Debit',
+            'cash' => 'Pending cash',
+            default => 'Credit',
+        };
     }
 
     public function getTypeLabelAttribute(): string

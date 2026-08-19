@@ -25,9 +25,13 @@ class BankTransactionsTable
                     ->summarize(TableSummaries::recordCount())
                     ->sortable(),
                 TextColumn::make('entry_side_label')
-                    ->label('Debit/Credit')
+                    ->label('Movement')
                     ->badge()
-                    ->color(fn (BankTransaction $record): string => $record->entry_side === 'credit' ? 'success' : 'danger'),
+                    ->color(fn (BankTransaction $record): string => match ($record->entry_side) {
+                        'debit' => 'danger',
+                        'cash' => 'info',
+                        default => 'success',
+                    }),
                 TextColumn::make('type_label')
                     ->label('Type')
                     ->badge()
@@ -83,8 +87,10 @@ class BankTransactionsTable
 
     private static function signedAmount(string $type, float $amount): float
     {
-        return BankTransaction::entrySideForType($type) === 'debit'
-            ? -1 * $amount
-            : $amount;
+        return match (BankTransaction::entrySideForType($type)) {
+            'debit' => -1 * $amount,
+            'cash' => 0.0,
+            default => $amount,
+        };
     }
 }

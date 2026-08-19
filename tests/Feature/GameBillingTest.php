@@ -36,6 +36,7 @@ use App\Models\User;
 use App\Services\CustomerDuePdfReport;
 use App\Services\ReportService;
 use App\Support\StaffTransactionCreator;
+use Database\Seeders\SingleBankAccountSetupSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -671,15 +672,21 @@ class GameBillingTest extends TestCase
     {
         $creditOptions = BankTransaction::typeOptionsForEntrySide('credit');
         $debitOptions = BankTransaction::typeOptionsForEntrySide('debit');
+        $cashOptions = BankTransaction::typeOptionsForEntrySide('cash');
 
         $this->assertSame('credit', BankTransaction::entrySideForType('daily_collection_deposit'));
         $this->assertSame('debit', BankTransaction::entrySideForType('expense_paid'));
+        $this->assertSame('cash', BankTransaction::entrySideForType('cash_pending_adjustment_in'));
         $this->assertArrayHasKey('daily_collection_deposit', $creditOptions);
         $this->assertArrayHasKey('other_payment_received', $creditOptions);
         $this->assertArrayNotHasKey('expense_paid', $creditOptions);
+        $this->assertArrayNotHasKey('cash_pending_adjustment_in', $creditOptions);
         $this->assertArrayHasKey('expense_paid', $debitOptions);
         $this->assertArrayHasKey('loan_installment_paid', $debitOptions);
         $this->assertArrayNotHasKey('daily_collection_deposit', $debitOptions);
+        $this->assertArrayNotHasKey('cash_pending_adjustment_in', $debitOptions);
+        $this->assertArrayHasKey('cash_pending_adjustment_in', $cashOptions);
+        $this->assertArrayHasKey('cash_pending_adjustment_out', $cashOptions);
     }
 
     public function test_bank_paid_staff_transactions_reduce_bank_balance(): void
@@ -720,7 +727,7 @@ class GameBillingTest extends TestCase
         $this->assertSame(1000.0, $summaryAfterUpdate['cash_in_bank']);
     }
 
-    public function test_cash_staff_transactions_reduce_pending_bank_deposit_and_digital_sources_create_bank_entry(): void
+    public function test_cash_staff_transactions_reduce_pending_bank_deposit_and_bank_source_creates_bank_entry(): void
     {
         $staff = Staff::create([
             'name' => 'Flexible Paid Staff',
@@ -759,7 +766,12 @@ class GameBillingTest extends TestCase
         $this->assertSame(1000.0, $cashSummary['cash_in_bank']);
         $this->assertNull($transaction->bankTransaction()->first());
 
-        $transaction->update(['paid_from' => 'easy_paisa']);
+        $this->assertSame([
+            'cash' => 'Cash from collection',
+            'bank' => 'Bank',
+        ], StaffTransaction::paidFromOptions());
+
+        $transaction->update(['paid_from' => 'bank']);
 
         $digitalSummary = app(ReportService::class)->bankSummary('2026-07-31');
         $bankTransaction = $transaction->bankTransaction()->firstOrFail();
@@ -769,7 +781,75 @@ class GameBillingTest extends TestCase
         $this->assertSame(250.0, $digitalSummary['staff_payments']);
         $this->assertSame(750.0, $digitalSummary['cash_in_bank']);
         $this->assertSame('staff_payment', $bankTransaction->type);
-        $this->assertSame('Paid from EasyPaisa', $bankTransaction->notes);
+        $this->assertSame('Paid from Bank', $bankTransaction->notes);
+    }
+
+    public function test_pending_cash_adjustments_reconcile_cash_to_be_deposited_without_bank_effect(): void
+    {
+        CashDeposit::create([
+            'deposit_date' => '2026-07-10',
+            'closing_source' => 'manual',
+            'manual_table_1_sale' => 10000,
+            'amount_collected_from_staff' => 10000,
+        ]);
+
+        $adjustment = BankTransaction::create([
+            'transaction_date' => '2026-07-11',
+            'type' => 'cash_pending_adjustment_out',
+            'amount' => 3000,
+            'description' => 'Cash pending reconciliation',
+        ]);
+
+        $summary = app(ReportService::class)->bankSummary('2026-07-31');
+
+        $this->assertSame('Pending cash', $adjustment->entry_side_label);
+        $this->assertSame(0.0, $adjustment->signed_amount);
+        $this->assertSame(3000.0, $summary['pending_cash_adjustment_out']);
+        $this->assertSame(7000.0, $summary['collection_cash_pending_deposit']);
+        $this->assertSame(0.0, $summary['cash_in_bank']);
+    }
+
+    public function test_single_bank_account_setup_seeder_reconciles_current_balances(): void
+    {
+        BankTransaction::create([
+            'transaction_date' => '2026-08-01',
+            'type' => 'adjustment_out',
+            'amount' => 1450,
+            'description' => 'Previous bank difference',
+        ]);
+
+        CashDeposit::create([
+            'deposit_date' => '2026-08-01',
+            'closing_source' => 'manual',
+            'manual_table_1_sale' => 61190,
+            'amount_collected_from_staff' => 61190,
+        ]);
+
+        app(SingleBankAccountSetupSeeder::class)->run();
+
+        $summary = app(ReportService::class)->bankSummary('2026-08-19');
+
+        $this->assertSame(610000.0, $summary['cash_in_bank']);
+        $this->assertSame(26000.0, $summary['collection_cash_pending_deposit']);
+        $this->assertSame(2, BankTransaction::query()
+            ->whereIn('source_type', [
+                BankTransaction::SOURCE_OPENING_BANK_BALANCE,
+                BankTransaction::SOURCE_OPENING_PENDING_CASH,
+            ])
+            ->count());
+
+        app(SingleBankAccountSetupSeeder::class)->run();
+
+        $summaryAfterSecondRun = app(ReportService::class)->bankSummary('2026-08-19');
+
+        $this->assertSame(610000.0, $summaryAfterSecondRun['cash_in_bank']);
+        $this->assertSame(26000.0, $summaryAfterSecondRun['collection_cash_pending_deposit']);
+        $this->assertSame(2, BankTransaction::query()
+            ->whereIn('source_type', [
+                BankTransaction::SOURCE_OPENING_BANK_BALANCE,
+                BankTransaction::SOURCE_OPENING_PENDING_CASH,
+            ])
+            ->count());
     }
 
     public function test_cash_rent_paid_from_monthly_closing_reduces_pending_bank_deposit(): void

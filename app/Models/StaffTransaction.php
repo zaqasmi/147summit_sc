@@ -67,10 +67,8 @@ class StaffTransaction extends Model
     public static function paidFromOptions(): array
     {
         return [
-            'cash' => 'Cash',
+            'cash' => 'Cash from collection',
             'bank' => 'Bank',
-            'easy_paisa' => 'EasyPaisa',
-            'other_bank' => 'Other bank',
         ];
     }
 

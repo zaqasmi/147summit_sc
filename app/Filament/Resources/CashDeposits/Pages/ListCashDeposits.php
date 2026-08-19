@@ -58,7 +58,7 @@ class ListCashDeposits extends ListRecords
                         ->options(StaffTransaction::paidFromOptions())
                         ->default('cash')
                         ->required()
-                        ->helperText('Cash reduces cash pending bank deposit. Bank, EasyPaisa, and other bank create a bank ledger entry.'),
+                        ->helperText('Cash reduces cash pending bank deposit. Bank creates a bank ledger debit.'),
                     TextInput::make('amount')
                         ->label('Advance amount')
                         ->prefix('Rs')

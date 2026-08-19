@@ -14,7 +14,7 @@ class BankTransactionInfolist
                 TextEntry::make('transaction_date')
                     ->date(),
                 TextEntry::make('entry_side_label')
-                    ->label('Debit/Credit'),
+                    ->label('Movement'),
                 TextEntry::make('type_label')
                     ->label('Type'),
                 TextEntry::make('amount')

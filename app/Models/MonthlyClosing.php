@@ -85,9 +85,8 @@ class MonthlyClosing extends Model
     public static function paidFromOptions(): array
     {
         return [
-            'cash' => 'Cash',
+            'cash' => 'Cash from collection',
             'bank' => 'Bank',
-            'other_account' => 'Other account',
         ];
     }
 

@@ -47,7 +47,7 @@ class StaffTransactionForm
                     ->options(StaffTransaction::paidFromOptions())
                     ->required()
                     ->default('cash')
-                    ->helperText('Cash reduces cash pending bank deposit. Bank, EasyPaisa, and other bank create a bank ledger entry.'),
+                    ->helperText('Cash reduces cash pending bank deposit. Bank creates a bank ledger debit.'),
                 TextInput::make('amount')
                     ->prefix('Rs')
                     ->required()
