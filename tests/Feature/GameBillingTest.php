@@ -12,6 +12,8 @@ use App\Filament\Resources\GameParticipants\GameParticipantResource;
 use App\Filament\Resources\GameSessions\GameSessionResource;
 use App\Filament\Resources\Players\PlayerResource;
 use App\Filament\Support\CenturyTime;
+use App\Filament\Widgets\CompactFinancialOverview;
+use App\Filament\Widgets\SaleManagerOverview;
 use App\Models\BankTransaction;
 use App\Models\CapitalLiability;
 use App\Models\CapitalLiabilityPayment;
@@ -1183,6 +1185,99 @@ class GameBillingTest extends TestCase
         $this->assertSame(35.0, $summary['balance_due_total']);
     }
 
+    public function test_dashboard_shows_paid_commission_till_now_beside_salesmen_commission(): void
+    {
+        foreach ([1, 2, 3, 4] as $number) {
+            SnookerTable::create([
+                'number' => $number,
+                'name' => 'Table '.$number,
+                'hourly_rate' => 10,
+            ]);
+        }
+
+        $staff = Staff::create([
+            'name' => 'Sale Manager',
+            'commission_rate' => 25,
+        ]);
+
+        CashDeposit::create([
+            'deposit_date' => '2026-07-01',
+            'staff_id' => $staff->id,
+            'closing_source' => 'manual',
+            'manual_table_1_sale' => 1000,
+            'manual_expense_total' => 200,
+            'cash_collected_from_counter' => 800,
+            'amount_collected_from_staff' => 800,
+        ]);
+
+        StaffTransaction::create([
+            'staff_id' => $staff->id,
+            'transaction_date' => '2026-07-01',
+            'commission_month' => '2026-07-01',
+            'type' => 'advance',
+            'paid_from' => 'cash',
+            'amount' => 100,
+        ]);
+
+        MonthlyCommission::create([
+            'staff_id' => $staff->id,
+            'month' => '2026-07-01',
+            'cash_collected' => 1000,
+            'expense_total' => 200,
+            'net_profit' => 800,
+            'commission_rate' => 25,
+            'commission_amount' => 200,
+            'paid_amount' => 40,
+            'balance_due' => 60,
+            'generated_at' => now(),
+        ]);
+
+        StaffTransaction::create([
+            'staff_id' => $staff->id,
+            'transaction_date' => '2026-07-02',
+            'commission_month' => '2026-07-01',
+            'type' => 'payout',
+            'paid_from' => 'cash',
+            'amount' => 25,
+        ]);
+
+        $adminDashboard = new class extends CompactFinancialOverview
+        {
+            /**
+             * @return array<string, mixed>
+             */
+            public function exposedViewData(array $filters): array
+            {
+                $this->pageFilters = $filters;
+
+                return $this->getViewData();
+            }
+        };
+
+        $saleManagerDashboard = new class extends SaleManagerOverview
+        {
+            /**
+             * @return array<string, mixed>
+             */
+            public function exposedViewData(array $filters): array
+            {
+                $this->pageFilters = $filters;
+
+                return $this->getViewData();
+            }
+        };
+
+        $adminHeroStats = $adminDashboard->exposedViewData(['date' => '2026-07-31'])['heroStats'];
+        $saleManagerHeroStats = $saleManagerDashboard->exposedViewData(['date' => '2026-07-31'])['heroStats'];
+
+        $this->assertSame('Salesmen commission', $adminHeroStats[3]['label']);
+        $this->assertSame('Paid commission till now', $adminHeroStats[4]['label']);
+        $this->assertSame('Rs 165.00', $adminHeroStats[4]['value']);
+        $this->assertSame('Salesmen commission', $saleManagerHeroStats[2]['label']);
+        $this->assertSame('Paid commission till now', $saleManagerHeroStats[3]['label']);
+        $this->assertSame('Rs 165.00', $saleManagerHeroStats[3]['value']);
+    }
+
     public function test_monthly_commission_uses_one_overall_pool_with_staff_bifurcation(): void
     {
         foreach ([1, 2, 3, 4] as $number) {
@@ -1258,6 +1353,101 @@ class GameBillingTest extends TestCase
         $this->assertSame(50.0, $monthly['staff_shares'][1]['already_paid_this_month']);
         $this->assertSame(75.0, $monthly['staff_shares'][1]['monthly_remaining']);
         $this->assertSame(75.0, $monthly['staff_shares'][1]['total_to_be_paid_this_month']);
+    }
+
+    public function test_monthly_dashboard_shows_total_paid_and_remaining_commission_states(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-21 12:00:00'));
+
+        try {
+            $admin = User::create([
+                'name' => 'Admin',
+                'email' => 'monthly-admin@example.test',
+                'role' => 'admin',
+                'password' => 'password',
+            ]);
+
+            foreach ([1, 2, 3, 4] as $number) {
+                SnookerTable::create([
+                    'number' => $number,
+                    'name' => 'Table '.$number,
+                    'hourly_rate' => 10,
+                ]);
+            }
+
+            $staff = Staff::create([
+                'name' => 'Sale Manager',
+                'commission_rate' => 25,
+            ]);
+
+            CashDeposit::create([
+                'deposit_date' => '2026-08-01',
+                'staff_id' => $staff->id,
+                'closing_source' => 'manual',
+                'manual_table_1_sale' => 1000,
+                'manual_expense_total' => 200,
+                'cash_collected_from_counter' => 800,
+                'amount_collected_from_staff' => 800,
+            ]);
+
+            MonthlyClosing::create([
+                'month' => '2026-08-01',
+                'status' => MonthlyClosing::STATUS_DRAFT,
+                'rent_total' => 0,
+                'rent_paid_amount' => 0,
+                'rent_paid_from' => 'bank',
+                'construction_deduction_amount' => 0,
+                'construction_received_amount' => 0,
+                'construction_account_name' => 'Construction deduction account',
+                'liabilities_verified' => false,
+            ]);
+
+            StaffTransaction::create([
+                'staff_id' => $staff->id,
+                'transaction_date' => '2026-08-01',
+                'commission_month' => '2026-08-01',
+                'type' => 'advance',
+                'paid_from' => 'cash',
+                'amount' => 100,
+            ]);
+
+            MonthlyCommission::create([
+                'staff_id' => $staff->id,
+                'month' => '2026-08-01',
+                'cash_collected' => 1000,
+                'expense_total' => 200,
+                'net_profit' => 800,
+                'commission_rate' => 25,
+                'commission_amount' => 200,
+                'paid_amount' => 40,
+                'balance_due' => 60,
+                'generated_at' => now(),
+            ]);
+
+            StaffTransaction::create([
+                'staff_id' => $staff->id,
+                'transaction_date' => '2026-08-02',
+                'commission_month' => '2026-08-01',
+                'type' => 'payout',
+                'paid_from' => 'cash',
+                'amount' => 25,
+            ]);
+
+            $this
+                ->actingAs($admin)
+                ->get(route('filament.admin.pages.monthly-report'))
+                ->assertOk()
+                ->assertSeeInOrder([
+                    'Total commission in month',
+                    'Rs 200.00',
+                    'Paid commission',
+                    'Rs 165.00',
+                    'Remaining commission',
+                    'Rs 35.00',
+                ]);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_monthly_commission_deducts_rent_entered_on_manual_closing_day(): void

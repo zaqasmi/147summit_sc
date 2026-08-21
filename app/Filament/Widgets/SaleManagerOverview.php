@@ -27,7 +27,9 @@ class SaleManagerOverview extends Widget
     protected function getViewData(): array
     {
         $selectedDate = $this->selectedDate();
-        $report = app(ReportService::class)->daily($selectedDate, withCapital: false);
+        $reports = app(ReportService::class);
+        $report = $reports->daily($selectedDate, withCapital: false);
+        $staffShare = $reports->staffShareSummary($selectedDate, includeScheduledRent: true);
         $activeSessions = GameSession::query()->active()->count();
         $openBalances = max(
             0,
@@ -41,6 +43,7 @@ class SaleManagerOverview extends Widget
                 $this->stat('Total collection', $report['total_collection'], 'Actual cash collected after customer dues.', 'heroicon-o-banknotes', 'success'),
                 $this->stat('Gross sale', $report['gross_sales_total'], 'Full table sale before unpaid customer dues.', 'heroicon-o-chart-bar', 'info'),
                 $this->stat('Salesmen commission', $report['staff_share_estimate'], 'Commission calculated from actual cash profit.', 'heroicon-o-receipt-percent', 'warning'),
+                $this->stat('Paid commission till now', $staffShare['amount_paid_total'], 'Advances, payouts, and monthly commission paid up to this date.', 'heroicon-o-wallet', ((float) $staffShare['amount_paid_total']) > 0 ? 'success' : 'gray'),
                 $this->stat('Payment due', $openBalances, 'Open balances still pending from players.', 'heroicon-o-exclamation-triangle', $openBalances > 0 ? 'danger' : 'success'),
             ],
             'sections' => [
