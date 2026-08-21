@@ -138,7 +138,7 @@ class TournamentManagementTest extends TestCase
             'name' => 'Public Open',
             'type' => 'knockout',
             'match_format' => 'best_of_5',
-            'starts_at' => '2026-08-20',
+            'starts_at' => today()->addDay()->toDateString(),
             'status' => 'upcoming',
             'is_featured' => true,
             'is_published' => true,

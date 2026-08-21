@@ -19,6 +19,13 @@ class BankTransactionInfolist
                     ->label('Type'),
                 TextEntry::make('amount')
                     ->formatStateUsing(fn ($state): string => 'Rs '.number_format((float) $state, 2)),
+                TextEntry::make('deposit_slip_number')
+                    ->label('Deposit slip number')
+                    ->placeholder('-'),
+                TextEntry::make('deposit_slip_date')
+                    ->label('Deposit slip date')
+                    ->date()
+                    ->placeholder('-'),
                 TextEntry::make('signed_amount')
                     ->label('Bank effect')
                     ->formatStateUsing(fn ($state): string => 'Rs '.number_format((float) $state, 2)),

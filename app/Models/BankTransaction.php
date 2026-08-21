@@ -49,10 +49,16 @@ class BankTransaction extends Model
         'cash_pending_adjustment_out',
     ];
 
+    private const DEPOSIT_SLIP_TYPES = [
+        'daily_collection_deposit',
+    ];
+
     protected $fillable = [
         'transaction_date',
         'type',
         'amount',
+        'deposit_slip_number',
+        'deposit_slip_date',
         'source_type',
         'source_id',
         'description',
@@ -63,8 +69,19 @@ class BankTransaction extends Model
     {
         return [
             'transaction_date' => 'date',
+            'deposit_slip_date' => 'date',
             'amount' => 'decimal:2',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (BankTransaction $transaction): void {
+            if (! self::usesDepositSlip($transaction->type)) {
+                $transaction->deposit_slip_number = null;
+                $transaction->deposit_slip_date = null;
+            }
+        });
     }
 
     public static function typeOptions(): array
@@ -127,6 +144,11 @@ class BankTransaction extends Model
         return in_array($type, self::OUTFLOW_TYPES, true) ? 'debit' : 'credit';
     }
 
+    public static function usesDepositSlip(?string $type): bool
+    {
+        return in_array($type, self::DEPOSIT_SLIP_TYPES, true);
+    }
+
     public static function syncFromCashDeposit(CashDeposit $deposit): void
     {
         self::deleteForSource(self::SOURCE_CASH_DEPOSIT, $deposit->id);
@@ -156,6 +178,32 @@ class BankTransaction extends Model
                 'notes' => $payment->notes,
             ],
         );
+    }
+
+    public static function syncCapitalLiabilityPaymentLedger(): void
+    {
+        $payments = CapitalLiabilityPayment::query()
+            ->with('capitalLiability')
+            ->get();
+
+        $paymentIds = $payments->pluck('id')->all();
+
+        foreach ($payments as $payment) {
+            self::syncFromCapitalLiabilityPayment($payment);
+        }
+
+        $staleTransactions = self::query()
+            ->where('source_type', self::SOURCE_CAPITAL_LIABILITY_PAYMENT);
+
+        if ($paymentIds === []) {
+            $staleTransactions->delete();
+
+            return;
+        }
+
+        $staleTransactions
+            ->whereNotIn('source_id', $paymentIds)
+            ->delete();
     }
 
     public static function syncFromExpense(Expense $expense): void
@@ -255,6 +303,8 @@ class BankTransaction extends Model
      */
     public static function summary(Carbon|string|null $asOf = null): array
     {
+        self::syncCapitalLiabilityPaymentLedger();
+
         $asOfDate = Carbon::parse($asOf ?? today())->toDateString();
         $asOfMonth = Carbon::parse($asOfDate)->startOfMonth()->toDateString();
         $transactions = self::query()

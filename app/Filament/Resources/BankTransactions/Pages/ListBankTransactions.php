@@ -42,6 +42,11 @@ class ListBankTransactions extends ListRecords
                         ->helperText('Defaults to the current cash pending bank amount. You can record a partial deposit.'),
                     TextInput::make('description')
                         ->default('Pending cash deposited to bank'),
+                    TextInput::make('deposit_slip_number')
+                        ->label('Deposit slip number')
+                        ->maxLength(100),
+                    DatePicker::make('deposit_slip_date')
+                        ->label('Deposit slip date'),
                     Textarea::make('notes')
                         ->helperText('Use this if one bank deposit covers multiple daily closings.'),
                 ])
@@ -50,6 +55,8 @@ class ListBankTransactions extends ListRecords
                         'transaction_date' => $data['transaction_date'],
                         'type' => 'daily_collection_deposit',
                         'amount' => round((float) $data['amount'], 2),
+                        'deposit_slip_number' => $data['deposit_slip_number'] ?? null,
+                        'deposit_slip_date' => $data['deposit_slip_date'] ?? null,
                         'description' => $data['description'] ?: 'Pending cash deposited to bank',
                         'notes' => $data['notes'] ?? null,
                     ]);

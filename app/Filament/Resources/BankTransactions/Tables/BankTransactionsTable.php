@@ -24,6 +24,15 @@ class BankTransactionsTable
                     ->date()
                     ->summarize(TableSummaries::recordCount())
                     ->sortable(),
+                TextColumn::make('deposit_slip_number')
+                    ->label('Slip #')
+                    ->searchable()
+                    ->placeholder('-'),
+                TextColumn::make('deposit_slip_date')
+                    ->label('Slip date')
+                    ->date()
+                    ->sortable()
+                    ->placeholder('-'),
                 TextColumn::make('entry_side_label')
                     ->label('Movement')
                     ->badge()

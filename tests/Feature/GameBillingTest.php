@@ -592,6 +592,62 @@ class GameBillingTest extends TestCase
         $this->assertSame(4700.0, $summaryAfterUpdate['cash_in_bank']);
     }
 
+    public function test_bank_summary_repairs_missing_capital_liability_bank_transactions(): void
+    {
+        BankTransaction::create([
+            'transaction_date' => '2026-07-01',
+            'type' => 'other_payment_received',
+            'amount' => 10000,
+            'description' => 'Opening bank money',
+        ]);
+
+        $liability = CapitalLiability::create([
+            'start_date' => '2026-07-01',
+            'title' => 'Table supplier',
+            'source_type' => 'supplier',
+            'lender_name' => 'Supplier',
+            'category' => 'Equipment',
+            'principal_amount' => 5000,
+            'installment_amount' => 2500,
+            'installment_frequency' => 'monthly',
+            'status' => 'active',
+        ]);
+
+        $payment = CapitalLiabilityPayment::withoutEvents(fn (): CapitalLiabilityPayment => CapitalLiabilityPayment::create([
+            'capital_liability_id' => $liability->id,
+            'payment_date' => '2026-07-05',
+            'amount' => 2500,
+            'paid_from' => 'bank',
+        ]));
+
+        $this->assertDatabaseMissing('bank_transactions', [
+            'source_type' => BankTransaction::SOURCE_CAPITAL_LIABILITY_PAYMENT,
+            'source_id' => $payment->id,
+        ]);
+
+        $summary = app(ReportService::class)->bankSummary('2026-07-31');
+
+        $this->assertSame(2500.0, $summary['supplier_installments_paid']);
+        $this->assertSame(7500.0, $summary['cash_in_bank']);
+        $this->assertDatabaseHas('bank_transactions', [
+            'source_type' => BankTransaction::SOURCE_CAPITAL_LIABILITY_PAYMENT,
+            'source_id' => $payment->id,
+            'type' => 'supplier_installment_paid',
+            'amount' => '2500.00',
+        ]);
+
+        CapitalLiabilityPayment::withoutEvents(fn (): bool => $payment->update(['paid_from' => 'cash']));
+
+        $summaryAfterCashUpdate = app(ReportService::class)->bankSummary('2026-07-31');
+
+        $this->assertSame(0.0, $summaryAfterCashUpdate['supplier_installments_paid']);
+        $this->assertSame(10000.0, $summaryAfterCashUpdate['cash_in_bank']);
+        $this->assertDatabaseMissing('bank_transactions', [
+            'source_type' => BankTransaction::SOURCE_CAPITAL_LIABILITY_PAYMENT,
+            'source_id' => $payment->id,
+        ]);
+    }
+
     public function test_owner_paid_liability_payment_creates_capital_recovery_record_without_bank_or_cash_effect(): void
     {
         $liability = CapitalLiability::create([
@@ -687,6 +743,31 @@ class GameBillingTest extends TestCase
         $this->assertArrayNotHasKey('cash_pending_adjustment_in', $debitOptions);
         $this->assertArrayHasKey('cash_pending_adjustment_in', $cashOptions);
         $this->assertArrayHasKey('cash_pending_adjustment_out', $cashOptions);
+    }
+
+    public function test_cash_collection_bank_deposits_store_deposit_slip_details(): void
+    {
+        $transaction = BankTransaction::create([
+            'transaction_date' => '2026-08-21',
+            'type' => 'daily_collection_deposit',
+            'amount' => 26000,
+            'deposit_slip_number' => 'SLIP-204',
+            'deposit_slip_date' => '2026-08-21',
+            'description' => 'Pending cash deposited to bank',
+        ]);
+
+        $summary = app(ReportService::class)->bankSummary('2026-08-21');
+
+        $this->assertSame('SLIP-204', $transaction->deposit_slip_number);
+        $this->assertSame('2026-08-21', $transaction->deposit_slip_date->toDateString());
+        $this->assertSame(26000.0, $summary['daily_deposits']);
+        $this->assertSame(26000.0, $summary['cash_in_bank']);
+
+        $transaction->update(['type' => 'withdrawal']);
+        $transaction->refresh();
+
+        $this->assertNull($transaction->deposit_slip_number);
+        $this->assertNull($transaction->deposit_slip_date);
     }
 
     public function test_bank_paid_staff_transactions_reduce_bank_balance(): void
@@ -850,6 +931,56 @@ class GameBillingTest extends TestCase
                 BankTransaction::SOURCE_OPENING_PENDING_CASH,
             ])
             ->count());
+    }
+
+    public function test_liability_payments_reduce_bank_or_pending_cash_based_on_payment_source(): void
+    {
+        app(SingleBankAccountSetupSeeder::class)->run();
+
+        $openingSummary = app(ReportService::class)->bankSummary('2026-08-19');
+
+        $this->assertSame(610000.0, $openingSummary['cash_in_bank']);
+        $this->assertSame(26000.0, $openingSummary['collection_cash_pending_deposit']);
+
+        $liability = CapitalLiability::create([
+            'start_date' => '2026-08-19',
+            'title' => 'Electrical labouring',
+            'source_type' => 'supplier',
+            'lender_name' => 'Farman',
+            'category' => 'Equipment',
+            'principal_amount' => 50000,
+            'installment_amount' => 40000,
+            'installment_frequency' => 'monthly',
+            'status' => 'active',
+        ]);
+
+        CapitalLiabilityPayment::create([
+            'capital_liability_id' => $liability->id,
+            'payment_date' => '2026-08-19',
+            'amount' => 40000,
+            'paid_from' => 'bank',
+            'notes' => 'Cheque paid to Farman',
+        ]);
+
+        $bankPaymentSummary = app(ReportService::class)->bankSummary('2026-08-19');
+
+        $this->assertSame(40000.0, $bankPaymentSummary['supplier_installments_paid']);
+        $this->assertSame(570000.0, $bankPaymentSummary['cash_in_bank']);
+        $this->assertSame(26000.0, $bankPaymentSummary['collection_cash_pending_deposit']);
+
+        CapitalLiabilityPayment::create([
+            'capital_liability_id' => $liability->id,
+            'payment_date' => '2026-08-19',
+            'amount' => 6000,
+            'paid_from' => 'cash',
+            'notes' => 'Cash collection paid to Farman',
+        ]);
+
+        $cashPaymentSummary = app(ReportService::class)->bankSummary('2026-08-19');
+
+        $this->assertSame(570000.0, $cashPaymentSummary['cash_in_bank']);
+        $this->assertSame(6000.0, $cashPaymentSummary['cash_installments_pending_deduction']);
+        $this->assertSame(20000.0, $cashPaymentSummary['collection_cash_pending_deposit']);
     }
 
     public function test_cash_rent_paid_from_monthly_closing_reduces_pending_bank_deposit(): void
