@@ -36,8 +36,8 @@
             ['label' => 'Total commission in month', 'value' => $this->money($commission['monthly_commission_to_be_paid']), 'tone' => 'teal'],
             ['label' => 'Paid commission', 'value' => $this->money($commission['already_paid_this_month']), 'tone' => 'green'],
             ['label' => 'Remaining commission', 'value' => $this->money($commission['monthly_remaining']), 'tone' => ((float) $commission['monthly_remaining']) > 0 ? 'amber' : 'green'],
+            ['label' => 'Owner profit', 'value' => $this->money($report['owner_profit_after_staff_share']), 'tone' => ((float) $report['owner_profit_after_staff_share']) >= 0 ? 'green' : 'rose'],
             ['label' => 'Previous advance balance', 'value' => $this->money($report['staff_advance_carry_in']), 'tone' => 'amber'],
-            ['label' => 'Staff paid deducted', 'value' => $this->money($report['staff_paid_total']), 'tone' => 'green'],
             ['label' => 'Net payable / carry forward', 'value' => $this->money($report['staff_distribution_to_be_paid']), 'tone' => 'green'],
         ] as $stat)
             <div class="summit-stat-card" data-tone="{{ $stat['tone'] }}">
@@ -195,7 +195,7 @@
                         <th class="px-4 py-3 summit-money">Total commission in month</th>
                         <th class="px-4 py-3 summit-money">Paid commission</th>
                         <th class="px-4 py-3 summit-money">Remaining commission</th>
-                        <th class="px-4 py-3 summit-money">Staff paid deducted</th>
+                        <th class="px-4 py-3 summit-money">Owner profit</th>
                         <th class="px-4 py-3 summit-money">Previous advance balance</th>
                         <th class="px-4 py-3 summit-money">Net payable / carry forward</th>
                     </tr>
@@ -214,7 +214,7 @@
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['monthly_commission_to_be_paid']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['already_paid_this_month']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['monthly_remaining']) }}</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_paid_total']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['owner_profit_after_staff_share']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_advance_carry_in']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($report['staff_distribution_to_be_paid']) }}</span></td>
                     </tr>
@@ -268,18 +268,18 @@
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['monthly_remaining']) }}</td>
                     </tr>
                     <tr>
+                        <td class="px-4 py-3">Owner profit</td>
+                        <td class="px-4 py-3">Net profit - total commission in month</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['owner_profit_after_staff_share']) }}</td>
+                    </tr>
+                    <tr>
                         <td class="px-4 py-3">Previous advance balance</td>
                         <td class="px-4 py-3">Negative amount carried from previous months</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_advance_carry_in']) }}</td>
                     </tr>
                     <tr>
-                        <td class="px-4 py-3">Staff paid deducted this month</td>
-                        <td class="px-4 py-3">Advances and payouts deducted from this month commission</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_paid_total']) }}</td>
-                    </tr>
-                    <tr>
                         <td class="px-4 py-3">Net payable / carry forward</td>
-                        <td class="px-4 py-3">Monthly commission + previous advance balance - staff paid deducted</td>
+                        <td class="px-4 py-3">Monthly commission + previous advance balance - advances and payouts</td>
                         <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($report['staff_distribution_to_be_paid']) }}</span></td>
                     </tr>
                     <tr>

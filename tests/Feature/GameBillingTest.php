@@ -1437,6 +1437,7 @@ class GameBillingTest extends TestCase
                 ->actingAs($admin)
                 ->get(route('filament.admin.pages.monthly-report'))
                 ->assertOk()
+                ->assertDontSee('Staff paid deducted')
                 ->assertSeeInOrder([
                     'Total commission in month',
                     'Rs 200.00',
@@ -1444,6 +1445,8 @@ class GameBillingTest extends TestCase
                     'Rs 165.00',
                     'Remaining commission',
                     'Rs 35.00',
+                    'Owner profit',
+                    'Rs 600.00',
                 ]);
         } finally {
             Carbon::setTestNow();
