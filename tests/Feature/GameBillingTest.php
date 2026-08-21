@@ -1366,6 +1366,12 @@ class GameBillingTest extends TestCase
                 'role' => 'admin',
                 'password' => 'password',
             ]);
+            $saleManager = User::create([
+                'name' => 'Sale Manager User',
+                'email' => 'monthly-sale-manager@example.test',
+                'role' => 'sale_manager',
+                'password' => 'password',
+            ]);
 
             foreach ([1, 2, 3, 4] as $number) {
                 SnookerTable::create([
@@ -1448,6 +1454,19 @@ class GameBillingTest extends TestCase
                     'Owner profit',
                     'Rs 600.00',
                 ]);
+
+            auth()->guard()->logout();
+            $this->flushSession();
+
+            $this
+                ->actingAs($saleManager)
+                ->get(route('filament.admin.pages.monthly-report'))
+                ->assertOk()
+                ->assertSee('Total commission in month')
+                ->assertSee('Paid commission')
+                ->assertSee('Remaining commission')
+                ->assertDontSee('Owner profit')
+                ->assertDontSee('Rs 600.00');
         } finally {
             Carbon::setTestNow();
         }

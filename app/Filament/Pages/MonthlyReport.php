@@ -188,6 +188,11 @@ class MonthlyReport extends Page
         return auth()->user()?->isAdmin() ?? false;
     }
 
+    public function canViewOwnerProfit(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public function money(float|int|string|null $amount): string
     {
         return 'Rs '.number_format((float) $amount, 2);

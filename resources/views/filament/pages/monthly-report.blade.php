@@ -4,8 +4,22 @@
     @php($closing = $report['monthly_closing'])
     @php($monthClosed = $this->isMonthClosed())
     @php($canManageMonthlyClosing = $this->canManageMonthlyClosing())
+    @php($canViewOwnerProfit = $this->canViewOwnerProfit())
     @php($tableNumbers = $report['table_numbers'] ?? [1, 2, 3, 4])
     @php($rentSplitDifference = round((float) $closing['rent_total'] - (float) $closing['rent_paid_amount'] - (float) $closing['construction_deduction_amount'], 2))
+    @php($monthlyStats = array_filter([
+        ['label' => 'Overall commission rate', 'value' => $this->percent($report['overall_commission_rate']), 'tone' => 'amber'],
+        ['label' => 'Cash collected', 'value' => $this->money($report['cash_collected']), 'tone' => 'green'],
+        ['label' => 'Dues discounted', 'value' => $this->money($report['dues_discounted']), 'tone' => 'amber'],
+        ['label' => 'Monthly rent', 'value' => $this->money($report['rent_expense_total']), 'tone' => 'rose'],
+        ['label' => 'Distribution base after rent', 'value' => $this->money($report['commission_distribution_base']), 'tone' => 'teal'],
+        ['label' => 'Total commission in month', 'value' => $this->money($commission['monthly_commission_to_be_paid']), 'tone' => 'teal'],
+        ['label' => 'Paid commission', 'value' => $this->money($commission['already_paid_this_month']), 'tone' => 'green'],
+        ['label' => 'Remaining commission', 'value' => $this->money($commission['monthly_remaining']), 'tone' => ((float) $commission['monthly_remaining']) > 0 ? 'amber' : 'green'],
+        $canViewOwnerProfit ? ['label' => 'Owner profit', 'value' => $this->money($report['owner_profit_after_staff_share']), 'tone' => ((float) $report['owner_profit_after_staff_share']) >= 0 ? 'green' : 'rose'] : null,
+        ['label' => 'Previous advance balance', 'value' => $this->money($report['staff_advance_carry_in']), 'tone' => 'amber'],
+        ['label' => 'Net payable / carry forward', 'value' => $this->money($report['staff_distribution_to_be_paid']), 'tone' => 'green'],
+    ]))
 
     <div class="summit-report-toolbar">
         <label class="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -27,19 +41,7 @@
     </div>
 
     <div class="summit-stat-grid">
-        @foreach ([
-            ['label' => 'Overall commission rate', 'value' => $this->percent($report['overall_commission_rate']), 'tone' => 'amber'],
-            ['label' => 'Cash collected', 'value' => $this->money($report['cash_collected']), 'tone' => 'green'],
-            ['label' => 'Dues discounted', 'value' => $this->money($report['dues_discounted']), 'tone' => 'amber'],
-            ['label' => 'Monthly rent', 'value' => $this->money($report['rent_expense_total']), 'tone' => 'rose'],
-            ['label' => 'Distribution base after rent', 'value' => $this->money($report['commission_distribution_base']), 'tone' => 'teal'],
-            ['label' => 'Total commission in month', 'value' => $this->money($commission['monthly_commission_to_be_paid']), 'tone' => 'teal'],
-            ['label' => 'Paid commission', 'value' => $this->money($commission['already_paid_this_month']), 'tone' => 'green'],
-            ['label' => 'Remaining commission', 'value' => $this->money($commission['monthly_remaining']), 'tone' => ((float) $commission['monthly_remaining']) > 0 ? 'amber' : 'green'],
-            ['label' => 'Owner profit', 'value' => $this->money($report['owner_profit_after_staff_share']), 'tone' => ((float) $report['owner_profit_after_staff_share']) >= 0 ? 'green' : 'rose'],
-            ['label' => 'Previous advance balance', 'value' => $this->money($report['staff_advance_carry_in']), 'tone' => 'amber'],
-            ['label' => 'Net payable / carry forward', 'value' => $this->money($report['staff_distribution_to_be_paid']), 'tone' => 'green'],
-        ] as $stat)
+        @foreach ($monthlyStats as $stat)
             <div class="summit-stat-card" data-tone="{{ $stat['tone'] }}">
                 <div class="summit-stat-label">{{ $stat['label'] }}</div>
                 <div class="summit-stat-value">{{ $stat['value'] }}</div>
@@ -195,7 +197,9 @@
                         <th class="px-4 py-3 summit-money">Total commission in month</th>
                         <th class="px-4 py-3 summit-money">Paid commission</th>
                         <th class="px-4 py-3 summit-money">Remaining commission</th>
-                        <th class="px-4 py-3 summit-money">Owner profit</th>
+                        @if ($canViewOwnerProfit)
+                            <th class="px-4 py-3 summit-money">Owner profit</th>
+                        @endif
                         <th class="px-4 py-3 summit-money">Previous advance balance</th>
                         <th class="px-4 py-3 summit-money">Net payable / carry forward</th>
                     </tr>
@@ -214,7 +218,9 @@
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['monthly_commission_to_be_paid']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['already_paid_this_month']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['monthly_remaining']) }}</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['owner_profit_after_staff_share']) }}</td>
+                        @if ($canViewOwnerProfit)
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['owner_profit_after_staff_share']) }}</td>
+                        @endif
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_advance_carry_in']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($report['staff_distribution_to_be_paid']) }}</span></td>
                     </tr>
@@ -267,11 +273,13 @@
                         <td class="px-4 py-3">Total commission in month - paid commission</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['monthly_remaining']) }}</td>
                     </tr>
-                    <tr>
-                        <td class="px-4 py-3">Owner profit</td>
-                        <td class="px-4 py-3">Net profit - total commission in month</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['owner_profit_after_staff_share']) }}</td>
-                    </tr>
+                    @if ($canViewOwnerProfit)
+                        <tr>
+                            <td class="px-4 py-3">Owner profit</td>
+                            <td class="px-4 py-3">Net profit - total commission in month</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['owner_profit_after_staff_share']) }}</td>
+                        </tr>
+                    @endif
                     <tr>
                         <td class="px-4 py-3">Previous advance balance</td>
                         <td class="px-4 py-3">Negative amount carried from previous months</td>
