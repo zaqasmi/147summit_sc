@@ -73,7 +73,7 @@ class BankBalanceSummary extends StatsOverviewWidget
                 ->description('Paid from bank')
                 ->color($summary['expenses_paid'] > 0 ? 'danger' : 'gray'),
             Stat::make('Rent paid', $this->money($summary['rent_paid']))
-                ->description('Closed monthly rent paid from bank')
+                ->description('Monthly rent paid from bank')
                 ->color($summary['rent_paid'] > 0 ? 'danger' : 'gray'),
             Stat::make('Loan returns paid', $this->money($summary['loan_installments_paid']))
                 ->description('Paid from bank')

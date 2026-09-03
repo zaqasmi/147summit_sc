@@ -1013,6 +1013,77 @@ class GameBillingTest extends TestCase
         $this->assertSame(0, BankTransaction::query()->count());
     }
 
+    public function test_bank_rent_paid_from_saved_monthly_closing_records_bank_deduction_before_close(): void
+    {
+        $closing = MonthlyClosing::create([
+            'month' => '2026-07-01',
+            'status' => MonthlyClosing::STATUS_DRAFT,
+            'rent_total' => 30000,
+            'rent_paid_amount' => 15000,
+            'rent_paid_from' => 'bank',
+            'construction_deduction_amount' => 15000,
+            'construction_received_amount' => 0,
+            'liabilities_verified' => false,
+        ]);
+
+        $transaction = BankTransaction::query()
+            ->where('source_type', BankTransaction::SOURCE_MONTHLY_CLOSING)
+            ->where('source_id', $closing->id)
+            ->firstOrFail();
+        $summary = app(ReportService::class)->bankSummary('2026-07-31');
+
+        $this->assertSame('rent_paid', $transaction->type);
+        $this->assertSame('15000.00', $transaction->amount);
+        $this->assertSame(15000.0, $summary['rent_paid']);
+        $this->assertSame(-15000.0, $summary['cash_in_bank']);
+    }
+
+    public function test_changing_monthly_closing_rent_source_moves_between_bank_and_pending_cash(): void
+    {
+        CashDeposit::create([
+            'deposit_date' => '2026-07-10',
+            'closing_source' => 'manual',
+            'manual_table_1_sale' => 50000,
+            'amount_collected_from_staff' => 50000,
+        ]);
+
+        $closing = MonthlyClosing::create([
+            'month' => '2026-07-01',
+            'status' => MonthlyClosing::STATUS_DRAFT,
+            'rent_total' => 30000,
+            'rent_paid_amount' => 15000,
+            'rent_paid_from' => 'bank',
+            'construction_deduction_amount' => 15000,
+            'construction_received_amount' => 0,
+            'liabilities_verified' => false,
+        ]);
+
+        $bankSummary = app(ReportService::class)->bankSummary('2026-07-31');
+
+        $this->assertSame(15000.0, $bankSummary['rent_paid']);
+        $this->assertSame(-15000.0, $bankSummary['cash_in_bank']);
+        $this->assertSame(50000.0, $bankSummary['collection_cash_pending_deposit']);
+        $this->assertSame(1, BankTransaction::query()
+            ->where('source_type', BankTransaction::SOURCE_MONTHLY_CLOSING)
+            ->where('source_id', $closing->id)
+            ->count());
+
+        $closing->update([
+            'rent_paid_from' => 'cash',
+        ]);
+
+        $cashSummary = app(ReportService::class)->bankSummary('2026-07-31');
+
+        $this->assertSame(0.0, $cashSummary['rent_paid']);
+        $this->assertSame(0.0, $cashSummary['cash_in_bank']);
+        $this->assertSame(15000.0, $cashSummary['cash_rent_payments_pending_deduction']);
+        $this->assertSame(35000.0, $cashSummary['collection_cash_pending_deposit']);
+        $this->assertSame(0, BankTransaction::query()
+            ->where('source_type', BankTransaction::SOURCE_MONTHLY_CLOSING)
+            ->where('source_id', $closing->id)
+            ->count());
+    }
+
     public function test_cash_expenses_and_cash_installments_reduce_pending_bank_deposit(): void
     {
         $closing = CashDeposit::create([

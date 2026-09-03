@@ -232,8 +232,7 @@ class BankTransaction extends Model
     public static function syncFromMonthlyClosing(MonthlyClosing $closing): void
     {
         if (
-            $closing->status !== MonthlyClosing::STATUS_CLOSED
-            || $closing->rent_paid_from !== 'bank'
+            $closing->rent_paid_from !== 'bank'
             || (float) $closing->rent_paid_amount <= 0
         ) {
             self::deleteForSource(self::SOURCE_MONTHLY_CLOSING, $closing->id);
@@ -254,6 +253,29 @@ class BankTransaction extends Model
                 'notes' => $closing->notes,
             ],
         );
+    }
+
+    public static function syncMonthlyClosingLedger(): void
+    {
+        $closings = MonthlyClosing::query()->get();
+        $closingIds = $closings->pluck('id')->all();
+
+        foreach ($closings as $closing) {
+            self::syncFromMonthlyClosing($closing);
+        }
+
+        $staleTransactions = self::query()
+            ->where('source_type', self::SOURCE_MONTHLY_CLOSING);
+
+        if ($closingIds === []) {
+            $staleTransactions->delete();
+
+            return;
+        }
+
+        $staleTransactions
+            ->whereNotIn('source_id', $closingIds)
+            ->delete();
     }
 
     public static function syncFromStaffTransaction(StaffTransaction $transaction): void
@@ -304,6 +326,7 @@ class BankTransaction extends Model
     public static function summary(Carbon|string|null $asOf = null): array
     {
         self::syncCapitalLiabilityPaymentLedger();
+        self::syncMonthlyClosingLedger();
 
         $asOfDate = Carbon::parse($asOf ?? today())->toDateString();
         $asOfMonth = Carbon::parse($asOfDate)->startOfMonth()->toDateString();
