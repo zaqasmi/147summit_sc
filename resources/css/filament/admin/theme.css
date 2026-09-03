@@ -215,12 +215,34 @@
 }
 
 .summit-print-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 0.75rem;
     background: linear-gradient(135deg, #0f5132, #0f766e);
     padding: 0.65rem 1.05rem;
     color: #fff;
     font-weight: 700;
     box-shadow: 0 12px 24px rgba(15, 81, 50, 0.22);
+}
+
+.summit-print-button-secondary {
+    border: 1px solid rgba(15, 81, 50, 0.18);
+    background: #ffffff;
+    color: #0f5132;
+    box-shadow: 0 8px 18px rgba(20, 32, 29, 0.08);
+}
+
+.dark .summit-print-button-secondary {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.07);
+    color: #d1fae5;
+}
+
+.summit-print-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.52;
+    box-shadow: none;
 }
 
 .summit-stat-grid {
@@ -716,6 +738,15 @@
     background: rgba(15, 81, 50, 0.025);
 }
 
+.dark .summit-table th {
+    background: rgba(20, 184, 166, 0.12);
+    color: #cbd5e1;
+}
+
+.dark .summit-table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.03);
+}
+
 .summit-money {
     font-variant-numeric: tabular-nums;
     text-align: right;
@@ -760,6 +791,198 @@
     padding-bottom: 0.7rem;
 }
 
+.summit-closing-panel {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.dark .summit-closing-panel {
+    background: linear-gradient(180deg, #101827 0%, #0f172a 100%);
+}
+
+.summit-closing-header,
+.summit-snapshot-header {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(15, 81, 50, 0.12);
+    padding: 1rem;
+}
+
+.dark .summit-closing-header,
+.dark .summit-snapshot-header {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.summit-closing-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.summit-status-badge {
+    display: inline-flex;
+    min-height: 2.35rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.summit-status-badge[data-status='closed'] {
+    border: 1px solid rgba(22, 163, 74, 0.2);
+    background: #dcfce7;
+    color: #166534;
+}
+
+.summit-status-badge[data-status='draft'] {
+    border: 1px solid rgba(217, 119, 6, 0.22);
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.dark .summit-status-badge[data-status='closed'] {
+    background: rgba(22, 101, 52, 0.34);
+    color: #bbf7d0;
+}
+
+.dark .summit-status-badge[data-status='draft'] {
+    background: rgba(146, 64, 14, 0.32);
+    color: #fed7aa;
+}
+
+.summit-closing-body {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.summit-closing-table {
+    min-width: 52rem;
+}
+
+.summit-closing-table th:nth-child(2),
+.summit-closing-table td:nth-child(2) {
+    width: 17rem;
+}
+
+.summit-form-cell .summit-date-input {
+    width: 100%;
+    min-width: 13rem;
+    box-shadow: none;
+}
+
+.summit-notes-input {
+    min-width: 18rem;
+}
+
+.summit-checkbox-line {
+    display: inline-flex;
+    min-height: 2.35rem;
+    align-items: center;
+    gap: 0.55rem;
+    font-weight: 700;
+}
+
+.summit-compact-table,
+.summit-snapshot-table {
+    min-width: 44rem;
+}
+
+.summit-snapshot-table td:first-child {
+    width: 15rem;
+}
+
+.summit-report-snapshot {
+    break-inside: avoid;
+}
+
+.summit-monthly-closing-snapshot {
+    display: grid;
+    gap: 1rem;
+    break-inside: avoid;
+}
+
+.summit-monthly-closing-snapshot-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    border-bottom: 1px solid rgba(15, 81, 50, 0.12);
+    padding-bottom: 0.95rem;
+}
+
+.summit-monthly-closing-snapshot-title {
+    color: var(--summit-ink);
+    font-size: 1rem;
+    font-weight: 850;
+}
+
+.dark .summit-monthly-closing-snapshot-title {
+    color: #f8fafc;
+}
+
+.summit-monthly-closing-snapshot-subtitle {
+    margin-top: 0.2rem;
+    color: #64748b;
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.summit-monthly-closing-snapshot-list > .fi-sc {
+    overflow: hidden;
+    gap: 0 !important;
+    border: 1px solid rgba(15, 81, 50, 0.12);
+    border-radius: 0.75rem;
+}
+
+.summit-monthly-closing-snapshot-list .fi-in-entry {
+    height: 100%;
+    border-right: 1px solid rgba(15, 81, 50, 0.1);
+    border-bottom: 1px solid rgba(15, 81, 50, 0.1);
+    border-radius: 0;
+    background: rgba(248, 250, 252, 0.8);
+    padding: 0.78rem 0.85rem;
+}
+
+.dark .summit-monthly-closing-snapshot-list .fi-in-entry {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.summit-monthly-closing-snapshot-list .fi-in-entry-label {
+    color: #64748b;
+    font-size: 0.76rem;
+    font-weight: 800;
+}
+
+.summit-monthly-closing-snapshot-list .fi-in-entry-content {
+    color: var(--summit-ink);
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.dark .summit-monthly-closing-snapshot-list .fi-in-entry-content {
+    color: #f8fafc;
+}
+
+@media (min-width: 768px) {
+    .summit-closing-header,
+    .summit-snapshot-header {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .summit-monthly-closing-snapshot-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+}
+
 .summit-closing-summary {
     display: grid;
     gap: 1rem;
@@ -777,6 +1000,101 @@
 .dark .summit-closing-formula {
     border-color: rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.04);
+}
+
+@media print {
+    .summit-report-toolbar,
+    .summit-closing-actions,
+    .summit-snapshot-header .summit-print-button,
+    .summit-monthly-closing-snapshot-header .summit-print-button {
+        display: none !important;
+    }
+
+    .summit-panel,
+    .summit-stat-card {
+        border-color: #cbd5e1 !important;
+        box-shadow: none !important;
+    }
+
+    .summit-table {
+        border-collapse: collapse;
+        font-size: 0.78rem;
+    }
+
+    .summit-table th,
+    .summit-table td {
+        border: 1px solid #cbd5e1;
+        padding: 0.45rem 0.55rem;
+    }
+
+    .summit-table th {
+        background: #e2e8f0 !important;
+        color: #0f172a !important;
+    }
+
+    body.summit-print-snapshot-only * {
+        visibility: hidden !important;
+    }
+
+    body.summit-print-snapshot-only .summit-report-snapshot,
+    body.summit-print-snapshot-only .summit-report-snapshot * {
+        visibility: visible !important;
+    }
+
+    body.summit-print-snapshot-only .summit-report-snapshot {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        border: 0 !important;
+    }
+
+    body.summit-print-snapshot-only .summit-report-snapshot .overflow-x-auto {
+        overflow: visible !important;
+    }
+
+    body.summit-print-snapshot-only .summit-snapshot-table {
+        min-width: 0;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only * {
+        visibility: hidden !important;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot,
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot * {
+        visibility: visible !important;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        padding: 0 !important;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot-list > .fi-sc {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot-list .fi-in-entry {
+        border: 1px solid #cbd5e1 !important;
+        background: #ffffff !important;
+        break-inside: avoid;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot-list .fi-in-entry-label,
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot-list .fi-in-entry-content,
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot-title {
+        color: #0f172a !important;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot-subtitle {
+        color: #475569 !important;
+    }
 }
 
 .summit-closing-formula > div {
