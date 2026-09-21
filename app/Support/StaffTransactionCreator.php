@@ -30,12 +30,13 @@ class StaffTransactionCreator
 
         $staff = Staff::query()
             ->active()
+            ->commissioned()
             ->orderBy('name')
             ->get();
 
         if ($staff->isEmpty()) {
             throw ValidationException::withMessages([
-                'staff_id' => 'No active staff found to split this transaction.',
+                'staff_id' => 'No active commission staff found to split this transaction.',
             ]);
         }
 
@@ -52,7 +53,7 @@ class StaffTransactionCreator
             $payload['amount'] = round($amountCents / 100, 2);
             $payload['description'] = filled($data['description'] ?? null)
                 ? $data['description']
-                : 'Split between all active staff';
+                : 'Split between all active commission staff';
 
             $record = StaffTransaction::query()->create($payload);
             $firstRecord ??= $record;

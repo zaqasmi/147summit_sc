@@ -376,6 +376,98 @@ class GameBillingTest extends TestCase
         $this->assertSame('375.00', $commission->balance_due);
     }
 
+    public function test_commission_payout_can_be_paid_later_against_selected_commission_month(): void
+    {
+        foreach ([1, 2, 3, 4] as $number) {
+            SnookerTable::create([
+                'number' => $number,
+                'name' => 'Table '.$number,
+                'hourly_rate' => 10,
+            ]);
+        }
+
+        $staff = Staff::create([
+            'name' => 'Sale Manager',
+            'commission_rate' => 25,
+        ]);
+
+        CashDeposit::create([
+            'deposit_date' => '2026-07-31',
+            'closing_source' => 'manual',
+            'manual_table_1_sale' => 400,
+            'cash_collected_from_counter' => 400,
+            'amount_collected_from_staff' => 400,
+        ]);
+
+        StaffTransaction::create([
+            'staff_id' => $staff->id,
+            'transaction_date' => '2026-08-05',
+            'commission_month' => '2026-07-01',
+            'type' => 'payout',
+            'paid_from' => 'bank',
+            'amount' => 40,
+            'description' => 'Paid July commission in August',
+        ]);
+
+        $july = app(ReportService::class)->monthly('2026-07');
+        $august = app(ReportService::class)->monthly('2026-08');
+        $commission = app(ReportService::class)->generateMonthlyCommission($staff, '2026-07');
+
+        $this->assertSame(100.0, $july['staff_shares'][0]['monthly_commission_to_be_paid']);
+        $this->assertSame(40.0, $july['staff_shares'][0]['already_paid_this_month']);
+        $this->assertSame(60.0, $july['staff_shares'][0]['remaining_balance']);
+        $this->assertSame(0.0, $july['staff_paid_total']);
+        $this->assertSame(40.0, $august['staff_paid_total']);
+        $this->assertSame('40.00', $commission->advances_deducted);
+        $this->assertSame('60.00', $commission->balance_due);
+    }
+
+    public function test_non_commission_staff_are_excluded_from_commission_split(): void
+    {
+        foreach ([1, 2, 3, 4] as $number) {
+            SnookerTable::create([
+                'number' => $number,
+                'name' => 'Table '.$number,
+                'hourly_rate' => 10,
+            ]);
+        }
+
+        $commissionStaff = Staff::create([
+            'name' => 'Commission Manager',
+            'commission_rate' => 25,
+        ]);
+        $salaryStaff = Staff::create([
+            'name' => 'Salary Staff',
+            'commission_rate' => 0,
+        ]);
+
+        CashDeposit::create([
+            'deposit_date' => '2026-07-31',
+            'closing_source' => 'manual',
+            'manual_table_1_sale' => 400,
+            'cash_collected_from_counter' => 400,
+            'amount_collected_from_staff' => 400,
+        ]);
+
+        StaffTransactionCreator::create([
+            'split_between_all_staff' => true,
+            'transaction_date' => '2026-07-31',
+            'commission_month' => '2026-07-01',
+            'type' => 'advance',
+            'paid_from' => 'cash',
+            'amount' => 50,
+        ]);
+
+        $monthly = app(ReportService::class)->monthly('2026-07');
+
+        $this->assertCount(1, $monthly['staff_shares']);
+        $this->assertTrue($monthly['staff_shares'][0]['staff']->is($commissionStaff));
+        $this->assertSame(100.0, $monthly['staff_shares'][0]['monthly_commission_to_be_paid']);
+        $this->assertSame(50.0, $monthly['staff_shares'][0]['already_paid_this_month']);
+        $this->assertSame(1, StaffTransaction::query()->where('staff_id', $commissionStaff->id)->count());
+        $this->assertSame(0, StaffTransaction::query()->where('staff_id', $salaryStaff->id)->count());
+    }
+
     public function test_game_session_closing_uses_sessions_for_sales_and_closing_for_cash(): void
     {
         foreach ([1, 2, 3, 4] as $number) {

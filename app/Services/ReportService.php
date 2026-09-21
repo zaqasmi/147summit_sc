@@ -22,6 +22,7 @@ use App\Models\SnookerTable;
 use App\Models\Staff;
 use App\Models\StaffTransaction;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 class ReportService
 {
@@ -386,7 +387,7 @@ class ReportService
         $depositsTotal = $this->collectionDepositedToBank($start, $end);
 
         $overallCommissionRate = $this->effectiveCommissionRate($netProfit, $commissionEstimate, $end);
-        $staffShares = $this->staffShares($start, $end, $commissionEstimate, $overallCommissionRate);
+        $staffShares = $this->staffShares($start, $commissionEstimate, $overallCommissionRate);
         $staffShareRows = collect($staffShares);
         $commissionEstimate = (float) $staffShareRows->sum('monthly_share');
         $staffAdvanceCarryIn = $this->staffAdvanceCarryIntoMonth($start);
@@ -462,11 +463,29 @@ class ReportService
         ];
     }
 
-    public function generateMonthlyCommission(Staff $staff, Carbon|string $month, float $paidAmount = 0): MonthlyCommission
+    /**
+     * @return Collection<int, MonthlyCommission>
+     */
+    public function generateMonthlyCommissions(Carbon|string $month): Collection
     {
         $start = Carbon::parse($month)->startOfMonth();
-        $end = $start->copy()->endOfMonth();
+
+        return Staff::query()
+            ->active()
+            ->commissioned()
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Staff $staff): MonthlyCommission => $this->generateMonthlyCommission($staff, $start));
+    }
+
+    public function generateMonthlyCommission(Staff $staff, Carbon|string $month, ?float $paidAmount = null): MonthlyCommission
+    {
+        $start = Carbon::parse($month)->startOfMonth();
         $report = $this->monthly($start);
+        $existingCommission = MonthlyCommission::query()
+            ->where('staff_id', $staff->id)
+            ->whereDate('month', $start->toDateString())
+            ->first();
 
         $previousBalance = (float) (MonthlyCommission::query()
             ->where('staff_id', $staff->id)
@@ -477,20 +496,14 @@ class ReportService
         $staffShare = collect($report['staff_shares'])
             ->first(fn (array $row): bool => $row['staff']->is($staff));
 
-        $advances = (float) StaffTransaction::query()
-            ->where('staff_id', $staff->id)
-            ->where('type', 'advance')
-            ->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()])
-            ->sum('amount');
-        $payouts = (float) StaffTransaction::query()
-            ->where('staff_id', $staff->id)
-            ->where('type', 'payout')
-            ->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()])
-            ->sum('amount');
+        $advances = $this->staffPaymentTotalForCommissionMonth($staff->id, $start, 'advance');
+        $payouts = $this->staffPaymentTotalForCommissionMonth($staff->id, $start, 'payout');
+        $manualPaidAmount = $paidAmount ?? (float) ($existingCommission?->paid_amount ?? 0);
+        $ledgerPaidAmount = $advances + $payouts;
 
         $commissionAmount = (float) ($staffShare['monthly_share'] ?? 0);
         $commissionRate = (float) ($staffShare['commission_rate'] ?? 0);
-        $balanceDue = $previousBalance + $commissionAmount - $advances - $payouts - $paidAmount;
+        $balanceDue = $previousBalance + $commissionAmount - $ledgerPaidAmount - $manualPaidAmount;
 
         return MonthlyCommission::query()->updateOrCreate(
             [
@@ -504,8 +517,8 @@ class ReportService
                 'commission_rate' => $commissionRate,
                 'commission_amount' => round($commissionAmount, 2),
                 'carried_forward_from_previous' => round($previousBalance, 2),
-                'advances_deducted' => round($advances + $payouts, 2),
-                'paid_amount' => round($paidAmount, 2),
+                'advances_deducted' => round($ledgerPaidAmount, 2),
+                'paid_amount' => round($manualPaidAmount, 2),
                 'balance_due' => round($balanceDue, 2),
                 'generated_at' => now(),
             ],
@@ -1383,6 +1396,7 @@ class ReportService
         $overallCommissionRate = $this->effectiveCommissionRate($netProfitToDate, $staffSharePool, $asOfDate);
         $staff = Staff::query()
             ->active()
+            ->commissioned()
             ->orderBy('name')
             ->get();
         $distributionWeightTotal = $this->staffDistributionWeightTotal($staff);
@@ -1633,6 +1647,15 @@ class ReportService
         return round(($commissionEstimate / $netProfit) * 100, 2);
     }
 
+    private function staffPaymentTotalForCommissionMonth(int $staffId, Carbon|string $month, string $type): float
+    {
+        return round((float) StaffTransaction::query()
+            ->where('staff_id', $staffId)
+            ->where('type', $type)
+            ->forCommissionMonth($month)
+            ->sum('amount'), 2);
+    }
+
     private function staffDistributionWeightTotal(iterable $staff): float
     {
         return (float) collect($staff)
@@ -1651,10 +1674,11 @@ class ReportService
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function staffShares(Carbon $start, Carbon $end, float $commissionPool, float $overallCommissionRate): array
+    private function staffShares(Carbon $start, float $commissionPool, float $overallCommissionRate): array
     {
         $staff = Staff::query()
             ->active()
+            ->commissioned()
             ->orderBy('name')
             ->get();
         $distributionWeightTotal = $this->staffDistributionWeightTotal($staff);
@@ -1662,24 +1686,15 @@ class ReportService
         $commissionPool = max(0, $commissionPool);
 
         return $staff
-            ->map(function (Staff $staff) use ($start, $end, $overallCommissionRate, $distributionWeightTotal, $staffCount, $commissionPool): array {
+            ->map(function (Staff $staff) use ($start, $overallCommissionRate, $distributionWeightTotal, $staffCount, $commissionPool): array {
                 $previousBalance = (float) (MonthlyCommission::query()
                     ->where('staff_id', $staff->id)
                     ->whereDate('month', '<', $start->toDateString())
                     ->orderByDesc('month')
                     ->value('balance_due') ?? 0);
 
-                $advancePaid = (float) StaffTransaction::query()
-                    ->where('staff_id', $staff->id)
-                    ->where('type', 'advance')
-                    ->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()])
-                    ->sum('amount');
-
-                $payoutPaid = (float) StaffTransaction::query()
-                    ->where('staff_id', $staff->id)
-                    ->where('type', 'payout')
-                    ->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()])
-                    ->sum('amount');
+                $advancePaid = $this->staffPaymentTotalForCommissionMonth($staff->id, $start, 'advance');
+                $payoutPaid = $this->staffPaymentTotalForCommissionMonth($staff->id, $start, 'payout');
 
                 $existingCommission = MonthlyCommission::query()
                     ->where('staff_id', $staff->id)

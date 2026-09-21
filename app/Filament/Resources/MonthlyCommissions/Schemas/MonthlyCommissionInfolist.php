@@ -14,25 +14,44 @@ class MonthlyCommissionInfolist
                 TextEntry::make('staff.name')
                     ->label('Staff'),
                 TextEntry::make('month')
-                    ->date(),
-                TextEntry::make('cash_collected')
-                    ->numeric(),
-                TextEntry::make('expense_total')
-                    ->numeric(),
-                TextEntry::make('net_profit')
-                    ->numeric(),
+                    ->date('M Y'),
                 TextEntry::make('commission_rate')
-                    ->numeric(),
+                    ->label('Rate')
+                    ->formatStateUsing(fn ($state): string => number_format((float) $state, 2).'%'),
                 TextEntry::make('commission_amount')
-                    ->numeric(),
+                    ->label('Monthly payment')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
+                TextEntry::make('total_paid')
+                    ->label('Paid against month')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
+                TextEntry::make('monthly_remaining')
+                    ->label('Monthly remaining')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
                 TextEntry::make('carried_forward_from_previous')
-                    ->numeric(),
-                TextEntry::make('advances_deducted')
-                    ->numeric(),
-                TextEntry::make('paid_amount')
-                    ->numeric(),
+                    ->label('Previous balance')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
+                TextEntry::make('total_payable')
+                    ->label('Overall payable')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
                 TextEntry::make('balance_due')
-                    ->numeric(),
+                    ->label('Overall remaining')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
+                TextEntry::make('balance_status')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (string $state): string => $state === 'Due' ? 'warning' : 'success'),
+                TextEntry::make('advances_deducted')
+                    ->label('Ledger paid')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
+                TextEntry::make('paid_amount')
+                    ->label('Manual paid')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
+                TextEntry::make('cash_collected')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
+                TextEntry::make('expense_total')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
+                TextEntry::make('net_profit')
+                    ->formatStateUsing(fn ($state): string => self::money($state)),
                 TextEntry::make('generated_at')
                     ->dateTime()
                     ->placeholder('-'),
@@ -46,5 +65,10 @@ class MonthlyCommissionInfolist
                     ->dateTime()
                     ->placeholder('-'),
             ]);
+    }
+
+    private static function money(float|int|string|null $amount): string
+    {
+        return 'Rs '.number_format((float) $amount, 2);
     }
 }

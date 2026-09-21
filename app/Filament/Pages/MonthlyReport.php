@@ -248,6 +248,8 @@ class MonthlyReport extends Page
             ],
         );
 
+        app(ReportService::class)->generateMonthlyCommissions($month);
+
         return $closing;
     }
 

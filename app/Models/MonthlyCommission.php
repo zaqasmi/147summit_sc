@@ -47,4 +47,24 @@ class MonthlyCommission extends Model
     {
         return $this->belongsTo(Staff::class);
     }
+
+    public function getTotalPayableAttribute(): float
+    {
+        return round((float) $this->carried_forward_from_previous + (float) $this->commission_amount, 2);
+    }
+
+    public function getTotalPaidAttribute(): float
+    {
+        return round((float) $this->advances_deducted + (float) $this->paid_amount, 2);
+    }
+
+    public function getMonthlyRemainingAttribute(): float
+    {
+        return round((float) $this->commission_amount - (float) $this->advances_deducted - (float) $this->paid_amount, 2);
+    }
+
+    public function getBalanceStatusAttribute(): string
+    {
+        return (float) $this->balance_due > 0 ? 'Due' : 'Paid / advance';
+    }
 }

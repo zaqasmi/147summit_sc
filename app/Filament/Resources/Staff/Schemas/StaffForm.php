@@ -22,7 +22,7 @@ class StaffForm
                     ->default('manager'),
                 TextInput::make('commission_rate')
                     ->label('Distribution weight')
-                    ->helperText('Used to split the overall 25% monthly commission pool.')
+                    ->helperText('Used to split the monthly commission pool. Use 0 for staff who are paid as salary or expense, not commission.')
                     ->required()
                     ->numeric()
                     ->default(25),

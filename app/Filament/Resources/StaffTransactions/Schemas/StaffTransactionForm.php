@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StaffTransactions\Schemas;
 
+use App\Models\Staff;
 use App\Models\StaffTransaction;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
@@ -17,13 +18,19 @@ class StaffTransactionForm
         return $schema
             ->components([
                 Checkbox::make('split_between_all_staff')
-                    ->label('All active staff')
-                    ->helperText('Create one transaction per active staff member and split this amount equally.')
+                    ->label('All active commission staff')
+                    ->helperText('Create one transaction per active staff member with a distribution weight above 0 and split this amount equally.')
                     ->live()
                     ->visible(fn (string $operation): bool => $operation === 'create')
                     ->dehydrated(fn (string $operation): bool => $operation === 'create'),
                 Select::make('staff_id')
-                    ->relationship('staff', 'name')
+                    ->label('Staff')
+                    ->options(fn (): array => Staff::query()
+                        ->active()
+                        ->commissioned()
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
                     ->searchable()
                     ->preload()
                     ->required(fn (Get $get): bool => ! (bool) $get('split_between_all_staff'))

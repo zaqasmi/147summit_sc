@@ -30,13 +30,14 @@ class ListCashDeposits extends ListRecords
                 ->modalHeading('Add staff advance')
                 ->form([
                     Checkbox::make('split_between_all_staff')
-                        ->label('All active staff')
-                        ->helperText('Create one advance per active staff member and split this amount equally.')
+                        ->label('All active commission staff')
+                        ->helperText('Create one advance per active commission staff member and split this amount equally.')
                         ->live(),
                     Select::make('staff_id')
                         ->label('Staff')
                         ->options(fn (): array => Staff::query()
                             ->active()
+                            ->commissioned()
                             ->orderBy('name')
                             ->pluck('name', 'id')
                             ->all())
@@ -52,7 +53,7 @@ class ListCashDeposits extends ListRecords
                     DatePicker::make('commission_month')
                         ->label('Commission month')
                         ->default(today()->startOfMonth())
-                        ->helperText('Advance will be deducted from this month. Leave as the current month unless you are adjusting an older month.'),
+                        ->helperText('Advance will reduce this commission month, even if the cash/bank payment date is different.'),
                     Select::make('paid_from')
                         ->label('Paid from')
                         ->options(StaffTransaction::paidFromOptions())

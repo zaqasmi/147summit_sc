@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
 class StaffTransaction extends Model
 {
@@ -39,6 +41,13 @@ class StaffTransaction extends Model
 
     protected static function booted(): void
     {
+        static::saving(function (StaffTransaction $transaction): void {
+            $transactionDate = $transaction->transaction_date ?: today();
+            $transaction->commission_month = $transaction->commission_month
+                ? Carbon::parse($transaction->commission_month)->startOfMonth()->toDateString()
+                : Carbon::parse($transactionDate)->startOfMonth()->toDateString();
+        });
+
         static::saved(function (StaffTransaction $transaction): void {
             BankTransaction::syncFromStaffTransaction($transaction);
         });
@@ -75,6 +84,22 @@ class StaffTransaction extends Model
     public static function isBankPaidSource(?string $source): bool
     {
         return in_array($source, self::BANK_PAID_SOURCES, true);
+    }
+
+    public function scopeForCommissionMonth(Builder $query, Carbon|string $month): Builder
+    {
+        $start = Carbon::parse($month)->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+
+        return $query->where(function (Builder $query) use ($start, $end): void {
+            $query
+                ->whereDate('commission_month', $start->toDateString())
+                ->orWhere(function (Builder $query) use ($start, $end): void {
+                    $query
+                        ->whereNull('commission_month')
+                        ->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()]);
+                });
+        });
     }
 
     public function getPaidFromLabelAttribute(): string

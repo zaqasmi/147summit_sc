@@ -59,4 +59,14 @@ class Staff extends Model
     {
         return $query->where('is_active', true);
     }
+
+    public function scopeCommissioned(Builder $query): Builder
+    {
+        return $query->where('commission_rate', '>', 0);
+    }
+
+    public function getIsCommissionedAttribute(): bool
+    {
+        return (float) $this->commission_rate > 0;
+    }
 }

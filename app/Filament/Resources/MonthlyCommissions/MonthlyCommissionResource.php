@@ -23,13 +23,19 @@ class MonthlyCommissionResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedReceiptPercent;
 
+    protected static ?string $navigationLabel = 'Staff Commission Balances';
+
+    protected static ?string $modelLabel = 'Staff Commission Balance';
+
+    protected static ?string $pluralModelLabel = 'Staff Commission Balances';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Admin';
 
     protected static ?int $navigationSort = 7;
 
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return static::canAccess();
     }
 
     public static function form(Schema $schema): Schema

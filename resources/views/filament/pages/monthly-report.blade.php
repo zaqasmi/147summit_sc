@@ -442,11 +442,13 @@
                         <th class="px-4 py-3">Staff</th>
                         <th class="px-4 py-3">Distribution</th>
                         <th class="px-4 py-3">Rate of profit</th>
+                        <th class="px-4 py-3 summit-money">Previous balance</th>
                         <th class="px-4 py-3 summit-money">Monthly commission to be paid</th>
                         <th class="px-4 py-3 summit-money">Advance</th>
                         <th class="px-4 py-3 summit-money">Paid</th>
                         <th class="px-4 py-3 summit-money">Already paid this month</th>
                         <th class="px-4 py-3 summit-money">Total to be paid this month</th>
+                        <th class="px-4 py-3 summit-money">Overall remaining</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -455,15 +457,17 @@
                             <td class="px-4 py-3">{{ $row['staff']->name }}</td>
                             <td class="px-4 py-3">{{ $this->percent($row['distribution_rate']) }}</td>
                             <td class="px-4 py-3">{{ $this->percent($row['commission_rate']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['previous_balance']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['monthly_commission_to_be_paid']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['advance_paid']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['payout_paid'] + $row['paid_amount']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['already_paid_this_month']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['total_to_be_paid_this_month']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['remaining_balance']) }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td class="px-4 py-3" colspan="8">No active staff found.</td>
+                            <td class="px-4 py-3" colspan="10">No active commission staff found.</td>
                         </tr>
                     @endforelse
                 </tbody>
