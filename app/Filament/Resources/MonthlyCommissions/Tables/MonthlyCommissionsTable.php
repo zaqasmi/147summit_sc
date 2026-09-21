@@ -23,6 +23,8 @@ class MonthlyCommissionsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->heading('Staff-wise commission bifurcation')
+            ->description('Each row shows one staff member commission balance for the selected month or filtered period.')
             ->striped()
             ->defaultSort('month', 'desc')
             ->columns([
@@ -35,13 +37,18 @@ class MonthlyCommissionsTable
                     ->date('M Y')
                     ->summarize(TableSummaries::recordCount())
                     ->sortable(),
+                TextColumn::make('period_end')
+                    ->label('Through')
+                    ->date()
+                    ->placeholder('-')
+                    ->sortable(),
                 TextColumn::make('commission_rate')
                     ->label('Rate')
                     ->formatStateUsing(fn ($state): string => number_format((float) $state, 2).'%')
                     ->summarize(TableSummaries::percentAverage())
                     ->sortable(),
                 TextColumn::make('commission_amount')
-                    ->label('Monthly payment')
+                    ->label('Commission earned')
                     ->formatStateUsing(fn ($state): string => self::money($state))
                     ->summarize(TableSummaries::moneyTotal())
                     ->sortable(),

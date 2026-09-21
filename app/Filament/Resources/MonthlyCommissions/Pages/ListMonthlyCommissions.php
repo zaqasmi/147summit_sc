@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\MonthlyCommissions\Pages;
 
 use App\Filament\Resources\MonthlyCommissions\MonthlyCommissionResource;
+use App\Filament\Resources\MonthlyCommissions\Widgets\StaffCommissionOverallSummary;
 use App\Models\Staff;
 use App\Models\StaffTransaction;
 use App\Services\ReportService;
@@ -12,11 +13,23 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Pages\Concerns\ExposesTableToWidgets;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Widgets\Widget;
+use Filament\Widgets\WidgetConfiguration;
 
 class ListMonthlyCommissions extends ListRecords
 {
+    use ExposesTableToWidgets;
+
     protected static string $resource = MonthlyCommissionResource::class;
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        app(ReportService::class)->generateMonthlyCommissions(today()->startOfMonth(), today());
+    }
 
     protected function getHeaderActions(): array
     {
@@ -32,9 +45,14 @@ class ListMonthlyCommissions extends ListRecords
                         ->label('Commission month')
                         ->default(today()->startOfMonth())
                         ->required(),
+                    DatePicker::make('period_end')
+                        ->label('Generate through date')
+                        ->default(today())
+                        ->helperText('For the current month, use today to see commission earned and paid till now. For old months, the system will clamp this to that month.')
+                        ->required(),
                 ])
                 ->action(function (array $data): void {
-                    $records = app(ReportService::class)->generateMonthlyCommissions($data['month']);
+                    $records = app(ReportService::class)->generateMonthlyCommissions($data['month'], $data['period_end']);
 
                     Notification::make()
                         ->title('Monthly commission balances updated')
@@ -97,5 +115,20 @@ class ListMonthlyCommissions extends ListRecords
                 })
                 ->successNotificationTitle('Commission payout recorded'),
         ];
+    }
+
+    /**
+     * @return array<class-string<Widget> | WidgetConfiguration>
+     */
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            StaffCommissionOverallSummary::class,
+        ];
+    }
+
+    public function getHeaderWidgetsColumns(): int|array
+    {
+        return 1;
     }
 }

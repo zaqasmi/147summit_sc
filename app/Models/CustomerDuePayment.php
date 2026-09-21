@@ -30,8 +30,13 @@ class CustomerDuePayment extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn (CustomerDuePayment $payment): bool => $payment->customerDue?->refreshBalance() ?? false);
-        static::deleted(fn (CustomerDuePayment $payment): bool => $payment->customerDue?->refreshBalance() ?? false);
+        static::saved(function (CustomerDuePayment $payment): void {
+            $payment->customerDue?->refreshBalance();
+        });
+
+        static::deleted(function (CustomerDuePayment $payment): void {
+            $payment->customerDue?->refreshBalance();
+        });
     }
 
     public function customerDue(): BelongsTo

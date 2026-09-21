@@ -252,10 +252,10 @@ class ReportService
     /**
      * @return array<string, mixed>
      */
-    public function monthly(Carbon|string $month, ?array $monthlyClosingOverride = null): array
+    public function monthly(Carbon|string $month, ?array $monthlyClosingOverride = null, Carbon|string|null $asOf = null): array
     {
         $start = Carbon::parse($month)->startOfMonth();
-        $end = $start->copy()->endOfMonth();
+        $end = $this->monthlyReportEnd($start, $asOf);
 
         $tables = SnookerTable::query()
             ->orderBy('number')
@@ -402,6 +402,10 @@ class ReportService
 
         return [
             'month' => $start,
+            'period_start' => $start->toDateString(),
+            'period_end' => $end->toDateString(),
+            'as_of' => $end->toDateString(),
+            'is_month_to_date' => $end->lt($start->copy()->endOfMonth()),
             'table_numbers' => $tableNumbers,
             'table_sales' => collect(array_values($tableSales)),
             'table_sales_by_number' => $tableSalesByNumber,
@@ -433,7 +437,7 @@ class ReportService
             'commission_distribution_base' => $commissionDistributionBase,
             'bank_deposit_amount' => $depositsTotal,
             'manual_days' => $manualDays,
-            'system_days' => $start->daysInMonth - $manualDays,
+            'system_days' => max(0, ((int) $start->diffInDays($end) + 1) - $manualDays),
             'commission_rate' => $overallCommissionRate,
             'overall_commission_rate' => $overallCommissionRate,
             'commission_estimate' => $commissionEstimate,
@@ -466,22 +470,24 @@ class ReportService
     /**
      * @return Collection<int, MonthlyCommission>
      */
-    public function generateMonthlyCommissions(Carbon|string $month): Collection
+    public function generateMonthlyCommissions(Carbon|string $month, Carbon|string|null $asOf = null): Collection
     {
         $start = Carbon::parse($month)->startOfMonth();
+        $periodEnd = $this->commissionGenerationPeriodEnd($start, $asOf);
 
         return Staff::query()
             ->active()
             ->commissioned()
             ->orderBy('name')
             ->get()
-            ->map(fn (Staff $staff): MonthlyCommission => $this->generateMonthlyCommission($staff, $start));
+            ->map(fn (Staff $staff): MonthlyCommission => $this->generateMonthlyCommission($staff, $start, asOf: $periodEnd));
     }
 
-    public function generateMonthlyCommission(Staff $staff, Carbon|string $month, ?float $paidAmount = null): MonthlyCommission
+    public function generateMonthlyCommission(Staff $staff, Carbon|string $month, ?float $paidAmount = null, Carbon|string|null $asOf = null): MonthlyCommission
     {
         $start = Carbon::parse($month)->startOfMonth();
-        $report = $this->monthly($start);
+        $periodEnd = $this->commissionGenerationPeriodEnd($start, $asOf);
+        $report = $this->monthly($start, asOf: $periodEnd);
         $existingCommission = MonthlyCommission::query()
             ->where('staff_id', $staff->id)
             ->whereDate('month', $start->toDateString())
@@ -505,24 +511,87 @@ class ReportService
         $commissionRate = (float) ($staffShare['commission_rate'] ?? 0);
         $balanceDue = $previousBalance + $commissionAmount - $ledgerPaidAmount - $manualPaidAmount;
 
-        return MonthlyCommission::query()->updateOrCreate(
-            [
+        $commission = MonthlyCommission::query()
+            ->where('staff_id', $staff->id)
+            ->whereDate('month', $start->toDateString())
+            ->first() ?? new MonthlyCommission([
                 'staff_id' => $staff->id,
                 'month' => $start->toDateString(),
-            ],
-            [
-                'cash_collected' => $report['cash_collected'],
-                'expense_total' => $report['expense_total'],
-                'net_profit' => $report['net_profit'],
-                'commission_rate' => $commissionRate,
-                'commission_amount' => round($commissionAmount, 2),
-                'carried_forward_from_previous' => round($previousBalance, 2),
-                'advances_deducted' => round($ledgerPaidAmount, 2),
-                'paid_amount' => round($manualPaidAmount, 2),
-                'balance_due' => round($balanceDue, 2),
-                'generated_at' => now(),
-            ],
-        );
+            ]);
+
+        $commission->fill([
+            'period_end' => $report['period_end'],
+            'cash_collected' => $report['cash_collected'],
+            'expense_total' => $report['expense_total'],
+            'net_profit' => $report['net_profit'],
+            'commission_rate' => $commissionRate,
+            'commission_amount' => round($commissionAmount, 2),
+            'carried_forward_from_previous' => round($previousBalance, 2),
+            'advances_deducted' => round($ledgerPaidAmount, 2),
+            'paid_amount' => round($manualPaidAmount, 2),
+            'balance_due' => round($balanceDue, 2),
+            'generated_at' => now(),
+        ]);
+
+        $commission->save();
+
+        return $commission;
+    }
+
+    /**
+     * @return Collection<int, MonthlyCommission>
+     */
+    public function refreshMonthlyCommissionsForDate(Carbon|string|null $date): Collection
+    {
+        if (blank($date)) {
+            return collect();
+        }
+
+        $date = Carbon::parse($date);
+
+        return $this->generateMonthlyCommissions($date->copy()->startOfMonth(), $this->commissionGenerationPeriodEnd($date->copy()->startOfMonth()));
+    }
+
+    private function monthlyReportEnd(Carbon $start, Carbon|string|null $asOf = null): Carbon
+    {
+        $monthEnd = $start->copy()->endOfMonth();
+
+        if (blank($asOf)) {
+            return $monthEnd;
+        }
+
+        $end = Carbon::parse($asOf)->startOfDay();
+
+        if ($end->lt($start)) {
+            return $start->copy();
+        }
+
+        if ($end->gt($monthEnd)) {
+            return $monthEnd;
+        }
+
+        return $end;
+    }
+
+    private function commissionGenerationPeriodEnd(Carbon|string $month, Carbon|string|null $asOf = null): Carbon
+    {
+        $start = Carbon::parse($month)->startOfMonth();
+
+        if (filled($asOf)) {
+            return $this->monthlyReportEnd($start, $asOf);
+        }
+
+        $today = today();
+
+        if ($start->isSameMonth($today)) {
+            return $this->monthlyReportEnd($start, $today);
+        }
+
+        if ($start->lt($today->copy()->startOfMonth())) {
+            return $start->copy()->endOfMonth();
+        }
+
+        return $start->copy();
     }
 
     private function manualSalesTotal(iterable $deposits): float
@@ -1074,7 +1143,20 @@ class ReportService
             'owner_profit_after_staff_share' => 0.0,
             'owner_profit_after_capital_installments' => 0.0,
             'staff_shares' => [],
-            'staff_commission_totals' => [],
+            'staff_commission_totals' => [
+                'previous_balance' => 0.0,
+                'monthly_share' => 0.0,
+                'monthly_commission_to_be_paid' => 0.0,
+                'total_payable' => 0.0,
+                'advance_paid' => 0.0,
+                'payout_paid' => 0.0,
+                'generated_paid' => 0.0,
+                'total_paid' => 0.0,
+                'already_paid_this_month' => 0.0,
+                'monthly_remaining' => 0.0,
+                'total_to_be_paid_this_month' => 0.0,
+                'remaining_balance' => 0.0,
+            ],
         ];
     }
 

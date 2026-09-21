@@ -15,11 +15,15 @@ class MonthlyCommissionInfolist
                     ->label('Staff'),
                 TextEntry::make('month')
                     ->date('M Y'),
+                TextEntry::make('period_end')
+                    ->label('Generated through')
+                    ->date()
+                    ->placeholder('-'),
                 TextEntry::make('commission_rate')
                     ->label('Rate')
                     ->formatStateUsing(fn ($state): string => number_format((float) $state, 2).'%'),
                 TextEntry::make('commission_amount')
-                    ->label('Monthly payment')
+                    ->label('Commission earned')
                     ->formatStateUsing(fn ($state): string => self::money($state)),
                 TextEntry::make('total_paid')
                     ->label('Paid against month')

@@ -362,7 +362,7 @@
 
     <div class="summit-panel bg-white dark:bg-gray-900">
         <div class="border-b border-gray-200 px-4 py-3 font-semibold dark:border-gray-800">
-            Overall bifurcation
+            Overall commission summary
         </div>
         <div class="overflow-x-auto">
             <table class="summit-table">
@@ -390,18 +390,38 @@
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['commission_distribution_base']) }}</td>
                     </tr>
                     <tr>
+                        <td class="px-4 py-3">Commission rate</td>
+                        <td class="px-4 py-3">Effective rate for all active commission staff</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->percent($report['overall_commission_rate']) }}</td>
+                    </tr>
+                    <tr>
                         <td class="px-4 py-3">Total commission in month</td>
                         <td class="px-4 py-3">{{ $this->money($report['commission_distribution_base']) }} x {{ $this->percent($report['overall_commission_rate']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['monthly_commission_to_be_paid']) }}</td>
                     </tr>
                     <tr>
-                        <td class="px-4 py-3">Paid commission</td>
-                        <td class="px-4 py-3">Advances, payouts, and generated commission paid in this month</td>
+                        <td class="px-4 py-3">Previous staff balance</td>
+                        <td class="px-4 py-3">Total remaining balance brought from previous months</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['previous_balance']) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3">Advance paid in month</td>
+                        <td class="px-4 py-3">Cash or bank staff advances deducted from commission</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['advance_paid']) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3">Final paid in month</td>
+                        <td class="px-4 py-3">Commission payouts and generated paid amounts</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money((float) $commission['payout_paid'] + (float) $commission['generated_paid']) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3">Total paid in month</td>
+                        <td class="px-4 py-3">Advances + final payments</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['already_paid_this_month']) }}</td>
                     </tr>
                     <tr>
-                        <td class="px-4 py-3">Remaining commission</td>
-                        <td class="px-4 py-3">Total commission in month - paid commission</td>
+                        <td class="px-4 py-3">Monthly remaining</td>
+                        <td class="px-4 py-3">Total commission in month - total paid in month</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['monthly_remaining']) }}</td>
                     </tr>
                     @if ($canViewOwnerProfit)
@@ -422,8 +442,13 @@
                         <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($report['staff_distribution_to_be_paid']) }}</span></td>
                     </tr>
                     <tr>
+                        <td class="px-4 py-3">Overall remaining staff balance</td>
+                        <td class="px-4 py-3">Previous staff balance + monthly commission - total paid in month</td>
+                        <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($commission['remaining_balance']) }}</span></td>
+                    </tr>
+                    <tr>
                         <td class="px-4 py-3">Advance carried forward</td>
-                        <td class="px-4 py-3">Only negative balances carry into the next month</td>
+                        <td class="px-4 py-3">Only negative staff balances carry as advance into the next month</td>
                         <td class="px-4 py-3 summit-money font-semibold"><span class="summit-amount-badge summit-amount-badge-green">{{ $this->money($report['staff_advance_carry_forward']) }}</span></td>
                     </tr>
                 </tbody>
@@ -433,7 +458,7 @@
 
     <div class="summit-panel bg-white dark:bg-gray-900">
         <div class="border-b border-gray-200 px-4 py-3 font-semibold dark:border-gray-800">
-            Individual bifurcation
+            Staff-wise commission bifurcation
         </div>
         <div class="overflow-x-auto">
             <table class="summit-table">
@@ -471,6 +496,18 @@
                         </tr>
                     @endforelse
                 </tbody>
+                <tfoot>
+                    <tr>
+                        <td class="px-4 py-3 font-semibold" colspan="3">Overall total</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['previous_balance']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['monthly_commission_to_be_paid']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['advance_paid']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money((float) $commission['payout_paid'] + (float) $commission['generated_paid']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['already_paid_this_month']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['total_to_be_paid_this_month']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['remaining_balance']) }}</td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>

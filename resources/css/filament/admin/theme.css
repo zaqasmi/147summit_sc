@@ -738,6 +738,15 @@
     background: rgba(15, 81, 50, 0.025);
 }
 
+.summit-table tfoot tr {
+    background: rgba(15, 81, 50, 0.1);
+}
+
+.summit-table tfoot td {
+    border-top: 1px solid rgba(15, 81, 50, 0.18);
+    color: var(--summit-ink);
+}
+
 .dark .summit-table th {
     background: rgba(20, 184, 166, 0.12);
     color: #cbd5e1;
@@ -745,6 +754,15 @@
 
 .dark .summit-table tbody tr:nth-child(even) {
     background: rgba(255, 255, 255, 0.03);
+}
+
+.dark .summit-table tfoot tr {
+    background: rgba(20, 184, 166, 0.13);
+}
+
+.dark .summit-table tfoot td {
+    border-top-color: rgba(255, 255, 255, 0.12);
+    color: white;
 }
 
 .summit-money {
@@ -1030,6 +1048,10 @@
     .summit-table th {
         background: #e2e8f0 !important;
         color: #0f172a !important;
+    }
+
+    .summit-table tfoot tr {
+        background: #f1f5f9 !important;
     }
 
     body.summit-print-snapshot-only * {

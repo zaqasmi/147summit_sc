@@ -13,6 +13,7 @@ class MonthlyCommission extends Model
     protected $fillable = [
         'staff_id',
         'month',
+        'period_end',
         'cash_collected',
         'expense_total',
         'net_profit',
@@ -30,6 +31,7 @@ class MonthlyCommission extends Model
     {
         return [
             'month' => 'date',
+            'period_end' => 'date',
             'cash_collected' => 'decimal:2',
             'expense_total' => 'decimal:2',
             'net_profit' => 'decimal:2',

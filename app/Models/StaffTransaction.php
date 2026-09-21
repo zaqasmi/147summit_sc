@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ReportService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -50,10 +51,12 @@ class StaffTransaction extends Model
 
         static::saved(function (StaffTransaction $transaction): void {
             BankTransaction::syncFromStaffTransaction($transaction);
+            $transaction->refreshMonthlyCommissionBalance();
         });
 
         static::deleted(function (StaffTransaction $transaction): void {
             BankTransaction::deleteForSource(BankTransaction::SOURCE_STAFF_TRANSACTION, $transaction->id);
+            $transaction->refreshMonthlyCommissionBalance();
         });
     }
 
@@ -93,7 +96,11 @@ class StaffTransaction extends Model
 
         return $query->where(function (Builder $query) use ($start, $end): void {
             $query
-                ->whereDate('commission_month', $start->toDateString())
+                ->where(function (Builder $query) use ($start, $end): void {
+                    $query
+                        ->whereDate('commission_month', '>=', $start->toDateString())
+                        ->whereDate('commission_month', '<=', $end->toDateString());
+                })
                 ->orWhere(function (Builder $query) use ($start, $end): void {
                     $query
                         ->whereNull('commission_month')
@@ -105,5 +112,23 @@ class StaffTransaction extends Model
     public function getPaidFromLabelAttribute(): string
     {
         return self::paidFromOptions()[$this->paid_from] ?? ucfirst(str_replace('_', ' ', (string) $this->paid_from));
+    }
+
+    public function refreshMonthlyCommissionBalance(): void
+    {
+        if (! in_array($this->type, ['advance', 'payout'], true)) {
+            return;
+        }
+
+        $staff = $this->staff()->first();
+
+        if (! $staff?->is_commissioned) {
+            return;
+        }
+
+        app(ReportService::class)->generateMonthlyCommission(
+            $staff,
+            $this->commission_month ?: $this->transaction_date ?: today(),
+        );
     }
 }

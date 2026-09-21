@@ -408,18 +408,29 @@ class GameBillingTest extends TestCase
             'amount' => 40,
             'description' => 'Paid July commission in August',
         ]);
+        StaffTransaction::withoutEvents(function () use ($staff): void {
+            StaffTransaction::query()->create([
+                'staff_id' => $staff->id,
+                'transaction_date' => '2026-07-31',
+                'commission_month' => '2026-07-31',
+                'type' => 'advance',
+                'paid_from' => 'bank',
+                'amount' => 15,
+                'description' => 'Older row with non-normalized commission month',
+            ]);
+        });
 
         $july = app(ReportService::class)->monthly('2026-07');
         $august = app(ReportService::class)->monthly('2026-08');
         $commission = app(ReportService::class)->generateMonthlyCommission($staff, '2026-07');
 
         $this->assertSame(100.0, $july['staff_shares'][0]['monthly_commission_to_be_paid']);
-        $this->assertSame(40.0, $july['staff_shares'][0]['already_paid_this_month']);
-        $this->assertSame(60.0, $july['staff_shares'][0]['remaining_balance']);
-        $this->assertSame(0.0, $july['staff_paid_total']);
+        $this->assertSame(55.0, $july['staff_shares'][0]['already_paid_this_month']);
+        $this->assertSame(45.0, $july['staff_shares'][0]['remaining_balance']);
+        $this->assertSame(15.0, $july['staff_paid_total']);
         $this->assertSame(40.0, $august['staff_paid_total']);
-        $this->assertSame('40.00', $commission->advances_deducted);
-        $this->assertSame('60.00', $commission->balance_due);
+        $this->assertSame('55.00', $commission->advances_deducted);
+        $this->assertSame('45.00', $commission->balance_due);
     }
 
     public function test_non_commission_staff_are_excluded_from_commission_split(): void
@@ -1318,18 +1329,7 @@ class GameBillingTest extends TestCase
             'amount' => 100,
         ]);
 
-        MonthlyCommission::create([
-            'staff_id' => $staff->id,
-            'month' => '2026-07-01',
-            'cash_collected' => 1000,
-            'expense_total' => 200,
-            'net_profit' => 800,
-            'commission_rate' => 25,
-            'commission_amount' => 200,
-            'paid_amount' => 40,
-            'balance_due' => 60,
-            'generated_at' => now(),
-        ]);
+        app(ReportService::class)->generateMonthlyCommission($staff, '2026-07', paidAmount: 40);
 
         StaffTransaction::create([
             'staff_id' => $staff->id,
@@ -1382,18 +1382,7 @@ class GameBillingTest extends TestCase
             'amount' => 100,
         ]);
 
-        MonthlyCommission::create([
-            'staff_id' => $staff->id,
-            'month' => '2026-07-01',
-            'cash_collected' => 1000,
-            'expense_total' => 200,
-            'net_profit' => 800,
-            'commission_rate' => 25,
-            'commission_amount' => 200,
-            'paid_amount' => 40,
-            'balance_due' => 60,
-            'generated_at' => now(),
-        ]);
+        app(ReportService::class)->generateMonthlyCommission($staff, '2026-07', paidAmount: 40);
 
         StaffTransaction::create([
             'staff_id' => $staff->id,
@@ -1580,18 +1569,7 @@ class GameBillingTest extends TestCase
                 'amount' => 100,
             ]);
 
-            MonthlyCommission::create([
-                'staff_id' => $staff->id,
-                'month' => '2026-08-01',
-                'cash_collected' => 1000,
-                'expense_total' => 200,
-                'net_profit' => 800,
-                'commission_rate' => 25,
-                'commission_amount' => 200,
-                'paid_amount' => 40,
-                'balance_due' => 60,
-                'generated_at' => now(),
-            ]);
+            app(ReportService::class)->generateMonthlyCommission($staff, '2026-08', paidAmount: 40);
 
             StaffTransaction::create([
                 'staff_id' => $staff->id,
@@ -1630,6 +1608,76 @@ class GameBillingTest extends TestCase
                 ->assertSee('Remaining commission')
                 ->assertDontSee('Owner profit')
                 ->assertDontSee('Rs 600.00');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_staff_commission_report_shows_overall_summary_before_staff_wise_bifurcation(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-21 12:00:00'));
+
+        try {
+            $admin = User::create([
+                'name' => 'Admin',
+                'email' => 'commission-report-admin@example.test',
+                'role' => 'admin',
+                'password' => 'password',
+            ]);
+            $firstStaff = Staff::create([
+                'name' => 'Asim',
+                'commission_rate' => 12.5,
+                'is_active' => false,
+            ]);
+            $secondStaff = Staff::create([
+                'name' => 'Karar',
+                'commission_rate' => 12.5,
+                'is_active' => false,
+            ]);
+
+            MonthlyCommission::create([
+                'staff_id' => $firstStaff->id,
+                'month' => '2026-07-01',
+                'period_end' => '2026-07-31',
+                'commission_rate' => 12.5,
+                'commission_amount' => 1000,
+                'carried_forward_from_previous' => 200,
+                'advances_deducted' => 300,
+                'paid_amount' => 100,
+                'balance_due' => 800,
+            ]);
+            MonthlyCommission::create([
+                'staff_id' => $secondStaff->id,
+                'month' => '2026-07-01',
+                'period_end' => '2026-07-31',
+                'commission_rate' => 12.5,
+                'commission_amount' => 500,
+                'carried_forward_from_previous' => 0,
+                'advances_deducted' => 50,
+                'paid_amount' => 0,
+                'balance_due' => 450,
+            ]);
+
+            $this
+                ->actingAs($admin)
+                ->get(route('filament.admin.resources.monthly-commissions.index'))
+                ->assertOk()
+                ->assertSeeInOrder([
+                    'Overall staff commission',
+                    'Commission earned',
+                    'Rs 1,500.00',
+                    'Paid against month',
+                    'Rs 450.00',
+                    'Monthly remaining',
+                    'Rs 1,050.00',
+                    'Previous balance',
+                    'Rs 200.00',
+                    'Overall remaining',
+                    'Rs 1,250.00',
+                    'Staff-wise commission bifurcation',
+                    'Asim',
+                    'Karar',
+                ]);
         } finally {
             Carbon::setTestNow();
         }
