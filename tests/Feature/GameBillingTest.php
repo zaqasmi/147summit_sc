@@ -755,6 +755,12 @@ class GameBillingTest extends TestCase
 
     public function test_owner_paid_liability_payment_creates_capital_recovery_record_without_bank_or_cash_effect(): void
     {
+        $this->assertSame([
+            'cash' => 'Cash from collection',
+            'bank' => 'Bank',
+            'owner' => 'Owner / other source',
+        ], CapitalLiabilityPayment::paidFromOptions());
+
         $liability = CapitalLiability::create([
             'start_date' => '2026-07-01',
             'title' => 'AC Invertors',
@@ -811,6 +817,23 @@ class GameBillingTest extends TestCase
             ->where('source_id', $payment->id)
             ->count());
         $this->assertSame('supplier_installment_paid', $payment->bankTransaction()->firstOrFail()->type);
+    }
+
+    public function test_capital_installment_form_exposes_owner_other_source_payment_option(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin',
+            'email' => 'liability-payment-admin@example.test',
+            'role' => 'admin',
+            'password' => 'password',
+        ]);
+
+        $this
+            ->actingAs($admin)
+            ->get(route('filament.admin.resources.capital-liability-payments.create'))
+            ->assertOk()
+            ->assertSee('Owner / other source')
+            ->assertSee('does not affect bank or pending cash');
     }
 
     public function test_other_bank_payments_received_are_tracked_as_bank_inflow(): void

@@ -48,7 +48,18 @@ class CapitalLiabilityPayment extends Model
         return [
             'cash' => 'Cash from collection',
             'bank' => 'Bank',
+            'owner' => 'Owner / other source',
         ];
+    }
+
+    public static function paidFromColor(?string $source): string
+    {
+        return match ($source) {
+            'cash' => 'warning',
+            'bank' => 'success',
+            'owner' => 'info',
+            default => 'gray',
+        };
     }
 
     public function capitalLiability(): BelongsTo

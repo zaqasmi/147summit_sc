@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CapitalLiabilityPayments\Schemas;
 
+use App\Models\CapitalLiabilityPayment;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
 
@@ -21,7 +22,9 @@ class CapitalLiabilityPaymentInfolist
                 TextEntry::make('amount')
                     ->formatStateUsing(fn ($state): string => 'Rs '.number_format((float) $state, 2)),
                 TextEntry::make('paid_from_label')
-                    ->label('Paid from'),
+                    ->label('Paid from')
+                    ->badge()
+                    ->color(fn (CapitalLiabilityPayment $record): string => CapitalLiabilityPayment::paidFromColor($record->paid_from)),
                 TextEntry::make('notes')
                     ->placeholder('-')
                     ->columnSpanFull(),

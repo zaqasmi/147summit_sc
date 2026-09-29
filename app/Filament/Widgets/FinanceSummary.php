@@ -35,7 +35,7 @@ class FinanceSummary extends StatsOverviewWidget
                 ->description('Net owner capital to cover')
                 ->color('info'),
             Stat::make('Capital added', $this->money($capital['capital_added']))
-                ->description('Manual and owner-paid liability capital')
+                ->description('Manual and owner / other-source liability capital')
                 ->color('info'),
             Stat::make('Recovery income', $this->money($capital['capital_reduced']))
                 ->description('Separate recovery entries recorded')

@@ -111,7 +111,7 @@ class CompactFinancialOverview extends Widget
                     'icon' => 'heroicon-o-briefcase',
                     'stats' => [
                         $this->stat('Capital invested', $capital['capital_invested'], 'Net owner capital amount to recover.', 'heroicon-o-currency-rupee', 'info'),
-                        $this->stat('Capital added', $capital['capital_added'], 'Manual capital and owner-paid liabilities.', 'heroicon-o-plus-circle', 'info'),
+                        $this->stat('Capital added', $capital['capital_added'], 'Manual capital and owner / other-source paid liabilities.', 'heroicon-o-plus-circle', 'info'),
                         $this->stat('Recovery income', $capital['capital_reduced'], 'Separate recovery entries recorded.', 'heroicon-o-arrow-trending-down', ((float) $capital['capital_reduced']) > 0 ? 'success' : 'gray'),
                         $this->stat('Profit covered', $capital['capital_recovered'], 'Capital covered by owner profit.', 'heroicon-o-check-badge', ((float) $capital['capital_recovered']) > 0 ? 'success' : 'gray'),
                         $this->stat('Capital remaining', $capital['capital_remaining'], 'Capital still not recovered.', 'heroicon-o-arrow-path', ((float) $capital['capital_remaining']) > 0 ? 'warning' : 'success'),
