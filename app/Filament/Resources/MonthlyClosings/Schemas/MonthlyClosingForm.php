@@ -90,10 +90,9 @@ class MonthlyClosingForm
                             ->live(onBlur: true)
                             ->columnSpanFull(),
                     ]),
-                Section::make('Report Snapshot')
+                Section::make('Printable Closing Report')
                     ->icon('heroicon-o-chart-bar')
                     ->extraAttributes(['class' => 'summit-monthly-closing-snapshot-section'])
-                    ->hiddenOn('create')
                     ->schema([
                         View::make('filament.resources.monthly-closings.report-snapshot')
                             ->columns([

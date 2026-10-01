@@ -1,50 +1,71 @@
 <x-filament-panels::page>
-    @php($report = $this->report())
-    @php($commission = $report['staff_commission_totals'])
-    @php($closing = $report['monthly_closing'])
-    @php($monthClosed = $this->isMonthClosed())
-    @php($canManageMonthlyClosing = $this->canManageMonthlyClosing())
-    @php($canViewOwnerProfit = $this->canViewOwnerProfit())
-    @php($tableNumbers = $report['table_numbers'] ?? [1, 2, 3, 4])
-    @php($rentSplitDifference = round((float) $closing['rent_total'] - (float) $closing['rent_paid_amount'] - (float) $closing['construction_deduction_amount'], 2))
-    @php($rentPaidFromLabel = ['bank' => 'Bank', 'cash' => 'Cash from collection'][$closing['rent_paid_from'] ?? 'bank'] ?? ucfirst(str_replace('_', ' ', (string) ($closing['rent_paid_from'] ?? 'bank'))))
-    @php($closingSourceLabel = ucfirst(str_replace('_', ' ', (string) $closing['source'])))
-    @php($monthlyStats = array_filter([
-        ['label' => 'Overall commission rate', 'value' => $this->percent($report['overall_commission_rate']), 'tone' => 'amber'],
-        ['label' => 'Cash collected', 'value' => $this->money($report['cash_collected']), 'tone' => 'green'],
-        ['label' => 'Dues discounted', 'value' => $this->money($report['dues_discounted']), 'tone' => 'amber'],
-        ['label' => 'Monthly rent', 'value' => $this->money($report['rent_expense_total']), 'tone' => 'rose'],
-        ['label' => 'Distribution base after rent', 'value' => $this->money($report['commission_distribution_base']), 'tone' => 'teal'],
-        ['label' => 'Total commission in month', 'value' => $this->money($commission['monthly_commission_to_be_paid']), 'tone' => 'teal'],
-        ['label' => 'Paid commission', 'value' => $this->money($commission['already_paid_this_month']), 'tone' => 'green'],
-        ['label' => 'Remaining commission', 'value' => $this->money($commission['monthly_remaining']), 'tone' => ((float) $commission['monthly_remaining']) > 0 ? 'amber' : 'green'],
-        $canViewOwnerProfit ? ['label' => 'Owner profit', 'value' => $this->money($report['owner_profit_after_staff_share']), 'tone' => ((float) $report['owner_profit_after_staff_share']) >= 0 ? 'green' : 'rose'] : null,
-        ['label' => 'Previous advance balance', 'value' => $this->money($report['staff_advance_carry_in']), 'tone' => 'amber'],
-        ['label' => 'Net payable / carry forward', 'value' => $this->money($report['staff_distribution_to_be_paid']), 'tone' => 'green'],
-    ]))
-    @php($snapshotRows = array_filter([
-        ['label' => 'Report month', 'basis' => 'Selected period', 'value' => $report['month']->format('F Y'), 'numeric' => false],
-        ['label' => 'Closing status', 'basis' => 'Monthly closing record', 'value' => $monthClosed ? 'Closed' : 'Draft', 'numeric' => false],
-        ['label' => 'Gross sale', 'basis' => 'Before customer dues', 'value' => $this->money($report['gross_sales_total'])],
-        ['label' => 'Net customer dues', 'basis' => 'Dues added less recovered and discounts', 'value' => $this->money($report['dues_net_change'])],
-        ['label' => 'Sale after dues', 'basis' => 'Gross sale after customer dues', 'value' => $this->money($report['sales_total'])],
-        ['label' => 'Daily expenses', 'basis' => 'Non-rent expenses', 'value' => $this->money($report['daily_expense_total'])],
-        ['label' => 'Monthly rent', 'basis' => 'Full rent deducted before distribution', 'value' => $this->money($report['rent_expense_total'])],
-        ['label' => 'Actual rent paid', 'basis' => $rentPaidFromLabel, 'value' => $this->money($closing['rent_paid_amount'])],
-        ['label' => 'Construction deduction', 'basis' => 'Rent amount withheld for construction', 'value' => $this->money($closing['construction_deduction_amount'])],
-        ['label' => 'Saved in other account', 'basis' => $closing['construction_account_name'] ?: 'Other account', 'value' => $this->money($closing['construction_received_amount'])],
-        ['label' => 'Construction recovery balance', 'basis' => 'Deducted less saved in other account', 'value' => $this->money($closing['construction_balance'])],
-        ['label' => 'Cash collected', 'basis' => 'Actual cash collected in month', 'value' => $this->money($report['cash_collected'])],
-        ['label' => 'Distribution base after rent', 'basis' => 'Net profit after rent', 'value' => $this->money($report['commission_distribution_base'])],
-        ['label' => 'Commission rate', 'basis' => 'Effective monthly rate', 'value' => $this->percent($report['overall_commission_rate']), 'numeric' => false],
-        ['label' => 'Total commission in month', 'basis' => 'Distribution base x rate', 'value' => $this->money($commission['monthly_commission_to_be_paid'])],
-        ['label' => 'Paid commission', 'basis' => 'Advances, payouts, and generated paid amounts', 'value' => $this->money($commission['already_paid_this_month'])],
-        ['label' => 'Remaining commission', 'basis' => 'Commission less paid commission', 'value' => $this->money($commission['monthly_remaining'])],
-        $canViewOwnerProfit ? ['label' => 'Owner profit', 'basis' => 'Net profit less commission', 'value' => $this->money($report['owner_profit_after_staff_share'])] : null,
-        ['label' => 'Previous advance balance', 'basis' => 'Negative amount carried into month', 'value' => $this->money($report['staff_advance_carry_in'])],
-        ['label' => 'Net payable / carry forward', 'basis' => 'Commission plus carry-in less paid amounts', 'value' => $this->money($report['staff_distribution_to_be_paid'])],
-        filled($closing['notes'] ?? null) ? ['label' => 'Closing notes', 'basis' => 'Saved note', 'value' => $closing['notes'], 'numeric' => false] : null,
-    ]))
+    @php
+        $report = $this->report();
+        $commission = $report['staff_commission_totals'];
+        $closing = $report['monthly_closing'];
+        $monthClosed = $this->isMonthClosed();
+        $canManageMonthlyClosing = $this->canManageMonthlyClosing();
+        $canViewOwnerProfit = $this->canViewOwnerProfit();
+        $tableNumbers = $report['table_numbers'] ?? [1, 2, 3, 4];
+        $compactMoney = function (mixed $amount): string {
+            $amount = (float) ($amount ?? 0);
+
+            return abs($amount - round($amount)) < 0.005
+                ? number_format($amount, 0)
+                : number_format($amount, 2);
+        };
+        $rentSplitDifference = round((float) $closing['rent_total'] - (float) $closing['rent_paid_amount'] - (float) $closing['construction_deduction_amount'], 2);
+        $rentPaidFromLabel = ['bank' => 'Bank', 'cash' => 'Cash from collection'][$closing['rent_paid_from'] ?? 'bank'] ?? ucfirst(str_replace('_', ' ', (string) ($closing['rent_paid_from'] ?? 'bank')));
+        $closingSourceLabel = ucfirst(str_replace('_', ' ', (string) $closing['source']));
+        $monthlyStats = array_filter([
+            ['label' => 'Overall commission rate', 'value' => $this->percent($report['overall_commission_rate']), 'tone' => 'amber'],
+            ['label' => 'Cash collected', 'value' => $this->money($report['cash_collected']), 'tone' => 'green'],
+            ['label' => 'Dues discounted', 'value' => $this->money($report['dues_discounted']), 'tone' => 'amber'],
+            ['label' => 'Monthly rent', 'value' => $this->money($report['rent_expense_total']), 'tone' => 'rose'],
+            ['label' => 'Distribution base after rent', 'value' => $this->money($report['commission_distribution_base']), 'tone' => 'teal'],
+            ['label' => 'Total commission in month', 'value' => $this->money($commission['monthly_commission_to_be_paid']), 'tone' => 'teal'],
+            ['label' => 'Paid commission', 'value' => $this->money($commission['already_paid_this_month']), 'tone' => 'green'],
+            ['label' => 'Remaining commission', 'value' => $this->money($commission['monthly_remaining']), 'tone' => ((float) $commission['monthly_remaining']) > 0 ? 'amber' : 'green'],
+            $canViewOwnerProfit ? ['label' => 'Owner profit', 'value' => $this->money($report['owner_profit_after_staff_share']), 'tone' => ((float) $report['owner_profit_after_staff_share']) >= 0 ? 'green' : 'rose'] : null,
+            ['label' => 'Previous advance balance', 'value' => $this->money($report['staff_advance_carry_in']), 'tone' => 'amber'],
+            ['label' => 'Net payable / carry forward', 'value' => $this->money($report['staff_distribution_to_be_paid']), 'tone' => 'green'],
+        ]);
+        $snapshotRows = array_filter([
+            ['label' => 'Report month', 'basis' => 'Selected period', 'value' => $report['month']->format('F Y'), 'numeric' => false],
+            ['label' => 'Closing status', 'basis' => 'Monthly closing record', 'value' => $monthClosed ? 'Closed' : 'Draft', 'numeric' => false],
+            ['label' => 'Gross sale', 'basis' => 'Before customer dues', 'value' => $this->money($report['gross_sales_total'])],
+            ['label' => 'Net customer dues', 'basis' => 'Dues added less recovered and discounts', 'value' => $this->money($report['dues_net_change'])],
+            ['label' => 'Sale after dues', 'basis' => 'Gross sale after customer dues', 'value' => $this->money($report['sales_total'])],
+            ['label' => 'Daily expenses', 'basis' => 'Non-rent expenses', 'value' => $this->money($report['daily_expense_total'])],
+            ['label' => 'Monthly rent', 'basis' => 'Full rent deducted before distribution', 'value' => $this->money($report['rent_expense_total'])],
+            ['label' => 'Actual rent paid', 'basis' => $rentPaidFromLabel, 'value' => $this->money($closing['rent_paid_amount'])],
+            ['label' => 'Construction deduction', 'basis' => 'Rent amount withheld for construction', 'value' => $this->money($closing['construction_deduction_amount'])],
+            ['label' => 'Saved in other account', 'basis' => $closing['construction_account_name'] ?: 'Other account', 'value' => $this->money($closing['construction_received_amount'])],
+            ['label' => 'Construction recovery balance', 'basis' => 'Deducted less saved in other account', 'value' => $this->money($closing['construction_balance'])],
+            ['label' => 'Cash collected', 'basis' => 'Actual cash collected in month', 'value' => $this->money($report['cash_collected'])],
+            ['label' => 'Distribution base after rent', 'basis' => 'Net profit after rent', 'value' => $this->money($report['commission_distribution_base'])],
+            ['label' => 'Commission rate', 'basis' => 'Effective monthly rate', 'value' => $this->percent($report['overall_commission_rate']), 'numeric' => false],
+            ['label' => 'Total commission in month', 'basis' => 'Distribution base x rate', 'value' => $this->money($commission['monthly_commission_to_be_paid'])],
+            ['label' => 'Paid commission', 'basis' => 'Advances, payouts, and generated paid amounts', 'value' => $this->money($commission['already_paid_this_month'])],
+            ['label' => 'Remaining commission', 'basis' => 'Commission less paid commission', 'value' => $this->money($commission['monthly_remaining'])],
+            $canViewOwnerProfit ? ['label' => 'Owner profit', 'basis' => 'Net profit less commission', 'value' => $this->money($report['owner_profit_after_staff_share'])] : null,
+            ['label' => 'Previous advance balance', 'basis' => 'Negative amount carried into month', 'value' => $this->money($report['staff_advance_carry_in'])],
+            ['label' => 'Net payable / carry forward', 'basis' => 'Commission plus carry-in less paid amounts', 'value' => $this->money($report['staff_distribution_to_be_paid'])],
+            filled($closing['notes'] ?? null) ? ['label' => 'Closing notes', 'basis' => 'Saved note', 'value' => $closing['notes'], 'numeric' => false] : null,
+        ]);
+        $snapshotPrintTotals = [
+            ['item' => 'Total sale in the month', 'basis' => 'Gross table sale before customer dues', 'value' => $this->money($report['gross_sales_total'])],
+            ['item' => 'Sale after dues in the month', 'basis' => 'Gross sale - dues added + dues recovered', 'value' => $this->money($report['sales_total'])],
+            ['item' => 'Total dues in the month', 'basis' => 'Customer dues added during this month', 'value' => $this->money($report['dues_added'])],
+            ['item' => 'Total dues recovered in the month', 'basis' => 'Customer dues payments received during this month', 'value' => $this->money($report['dues_recovered'])],
+            ['item' => 'Total dues remaining in the month', 'basis' => 'Dues added - recovered - discounted for this month', 'value' => $this->money($report['dues_net_change'])],
+            ['item' => 'Overall dues remaining', 'basis' => 'Customer due balance at period end', 'value' => $this->money($report['dues']['balance_total'] ?? 0)],
+            ['item' => 'Total expenses in the month', 'basis' => 'Daily expenses + monthly rent', 'value' => $this->money($report['expense_total'])],
+            ['item' => 'Total advance paid in the month', 'basis' => 'Commission staff advances deducted from month', 'value' => $this->money($commission['advance_paid'])],
+            ['item' => 'Total commission staff-wise', 'basis' => 'Total monthly commission for all commission staff', 'value' => $this->money($commission['monthly_commission_to_be_paid'])],
+            ['item' => 'Total to be paid', 'basis' => 'Remaining amount payable to commission staff', 'value' => $this->money($commission['total_to_be_paid_this_month'])],
+        ];
+    @endphp
 
     <div class="summit-report-toolbar">
         <label class="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -213,6 +234,155 @@
     </div>
 
     <div class="summit-panel summit-report-snapshot bg-white dark:bg-gray-900">
+        <div class="summit-print-only summit-snapshot-print-content">
+            <div class="summit-panel summit-print-priority-panel bg-white dark:bg-gray-900">
+                <div class="border-b border-gray-200 px-4 py-3 dark:border-gray-800">
+                    <div class="font-semibold">Daily table sales, customer dues, and actual collection</div>
+                    <div class="mt-1 text-sm font-medium text-gray-600 dark:text-gray-400">{{ $report['month']->format('F Y') }}</div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="summit-table summit-daily-closing-print-table">
+                        <thead>
+                            <tr>
+                                <th class="px-4 py-3">Day</th>
+                                @foreach ($tableNumbers as $tableNumber)
+                                    <th class="px-4 py-3 summit-money">T{{ $tableNumber }}</th>
+                                @endforeach
+                                <th class="px-4 py-3 summit-money">Sale</th>
+                                <th class="px-4 py-3 summit-money">Due +</th>
+                                <th class="px-4 py-3 summit-money">Due rec.</th>
+                                <th class="px-4 py-3 summit-money">Due bal.</th>
+                                <th class="px-4 py-3 summit-money">Net sale</th>
+                                <th class="px-4 py-3 summit-money">Expense</th>
+                                <th class="px-4 py-3 summit-money">Collect</th>
+                                <th class="px-4 py-3 summit-money">Staff</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($report['daily_rows'] as $row)
+                                <tr>
+                                    <td class="px-4 py-3">{{ \Illuminate\Support\Carbon::parse($row['date'])->format('d') }}</td>
+                                    @foreach ($tableNumbers as $tableNumber)
+                                        <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['table_sales_by_number'][$tableNumber] ?? 0) }}</td>
+                                    @endforeach
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['gross_sales_total']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['dues_added']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['dues_recovered']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['dues_net_change']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['sales_total']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['daily_expense_total']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['cash_collected']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['staff_paid_total']) }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td class="px-4 py-3" colspan="{{ count($tableNumbers) + 9 }}">No daily closing activity found for this month.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td class="px-4 py-3 font-semibold">Total</td>
+                                @foreach ($tableNumbers as $tableNumber)
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['table_sales_by_number'][$tableNumber] ?? 0) }}</td>
+                                @endforeach
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['gross_sales_total']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['dues_added']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['dues_recovered']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['dues_net_change']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['sales_total']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['daily_expense_total']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['cash_collected']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['staff_paid_total']) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <div class="summit-panel bg-white dark:bg-gray-900">
+                <div class="border-b border-gray-200 px-4 py-3 font-semibold dark:border-gray-800">
+                    Monthly totals below daily table
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="summit-table summit-compact-table">
+                        <thead>
+                            <tr>
+                                <th class="px-4 py-3">Particular</th>
+                                <th class="px-4 py-3">Basis</th>
+                                <th class="px-4 py-3 summit-money">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($snapshotPrintTotals as $row)
+                                <tr>
+                                    <td class="px-4 py-3 font-semibold">{{ $row['item'] }}</td>
+                                    <td class="px-4 py-3">{{ $row['basis'] }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $row['value'] }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="summit-panel bg-white dark:bg-gray-900">
+                <div class="border-b border-gray-200 px-4 py-3 font-semibold dark:border-gray-800">
+                    Staff-wise commission and total to be paid
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="summit-table">
+                        <thead>
+                            <tr>
+                                <th class="px-4 py-3">Staff</th>
+                                <th class="px-4 py-3">Distribution</th>
+                                <th class="px-4 py-3">Rate of profit</th>
+                                <th class="px-4 py-3 summit-money">Previous balance</th>
+                                <th class="px-4 py-3 summit-money">Monthly commission</th>
+                                <th class="px-4 py-3 summit-money">Advance</th>
+                                <th class="px-4 py-3 summit-money">Paid</th>
+                                <th class="px-4 py-3 summit-money">Already paid this month</th>
+                                <th class="px-4 py-3 summit-money">Total to be paid this month</th>
+                                <th class="px-4 py-3 summit-money">Overall remaining</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($report['staff_shares'] as $row)
+                                <tr>
+                                    <td class="px-4 py-3">{{ $row['staff']->name }}</td>
+                                    <td class="px-4 py-3">{{ $this->percent($row['distribution_rate']) }}</td>
+                                    <td class="px-4 py-3">{{ $this->percent($row['commission_rate']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['previous_balance']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['monthly_commission_to_be_paid']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['advance_paid']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['payout_paid'] + $row['paid_amount']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['already_paid_this_month']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['total_to_be_paid_this_month']) }}</td>
+                                    <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['remaining_balance']) }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td class="px-4 py-3" colspan="10">No active commission staff found.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td class="px-4 py-3 font-semibold" colspan="3">Overall total</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['previous_balance']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['monthly_commission_to_be_paid']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['advance_paid']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money((float) $commission['payout_paid'] + (float) $commission['generated_paid']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['already_paid_this_month']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['total_to_be_paid_this_month']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['remaining_balance']) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div class="summit-snapshot-header">
             <div>
                 <div class="font-semibold text-gray-950 dark:text-white">Report snapshot</div>
@@ -253,55 +423,62 @@
     </div>
 
     <div class="summit-panel bg-white dark:bg-gray-900">
-        <div class="border-b border-gray-200 px-4 py-3 font-semibold dark:border-gray-800">
-            Daily table sales, customer dues, and actual collection
+        <div class="border-b border-gray-200 px-4 py-3 dark:border-gray-800">
+            <div class="font-semibold">Daily table sales, customer dues, and actual collection</div>
+            <div class="mt-1 text-sm font-medium text-gray-600 dark:text-gray-400">{{ $report['month']->format('F Y') }}</div>
         </div>
         <div class="overflow-x-auto">
-            <table class="summit-table">
+            <table class="summit-table summit-daily-closing-print-table">
                 <thead>
                     <tr>
-                        <th class="px-4 py-3">Date</th>
+                        <th class="px-4 py-3">Day</th>
                         @foreach ($tableNumbers as $tableNumber)
-                            <th class="px-4 py-3 summit-money">Table {{ $tableNumber }}</th>
+                            <th class="px-4 py-3 summit-money">T{{ $tableNumber }}</th>
                         @endforeach
-                        <th class="px-4 py-3 summit-money">Gross sale</th>
-                        <th class="px-4 py-3 summit-money">Net customer dues</th>
-                        <th class="px-4 py-3 summit-money">Sale after dues</th>
-                        <th class="px-4 py-3 summit-money">Daily expense</th>
-                        <th class="px-4 py-3 summit-money">Actual collected</th>
-                        <th class="px-4 py-3 summit-money">Staff paid</th>
+                        <th class="px-4 py-3 summit-money">Sale</th>
+                        <th class="px-4 py-3 summit-money">Due +</th>
+                        <th class="px-4 py-3 summit-money">Due rec.</th>
+                        <th class="px-4 py-3 summit-money">Due bal.</th>
+                        <th class="px-4 py-3 summit-money">Net sale</th>
+                        <th class="px-4 py-3 summit-money">Expense</th>
+                        <th class="px-4 py-3 summit-money">Collect</th>
+                        <th class="px-4 py-3 summit-money">Staff</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($report['daily_rows'] as $row)
                         <tr>
-                            <td class="px-4 py-3">{{ \Illuminate\Support\Carbon::parse($row['date'])->format('d M') }}</td>
+                            <td class="px-4 py-3">{{ \Illuminate\Support\Carbon::parse($row['date'])->format('d') }}</td>
                             @foreach ($tableNumbers as $tableNumber)
-                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['table_sales_by_number'][$tableNumber] ?? 0) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['table_sales_by_number'][$tableNumber] ?? 0) }}</td>
                             @endforeach
-                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['gross_sales_total']) }}</td>
-                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['dues_net_change']) }}</td>
-                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['sales_total']) }}</td>
-                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['daily_expense_total']) }}</td>
-                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['cash_collected']) }}</td>
-                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['staff_paid_total']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['gross_sales_total']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['dues_added']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['dues_recovered']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['dues_net_change']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['sales_total']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['daily_expense_total']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['cash_collected']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($row['staff_paid_total']) }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td class="px-4 py-3" colspan="{{ count($tableNumbers) + 7 }}">No daily closing activity found for this month.</td>
+                            <td class="px-4 py-3" colspan="{{ count($tableNumbers) + 9 }}">No daily closing activity found for this month.</td>
                         </tr>
                     @endforelse
                     <tr>
-                        <td class="px-4 py-3 font-semibold">Month total</td>
+                        <td class="px-4 py-3 font-semibold">Total</td>
                         @foreach ($tableNumbers as $tableNumber)
-                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['table_sales_by_number'][$tableNumber] ?? 0) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['table_sales_by_number'][$tableNumber] ?? 0) }}</td>
                         @endforeach
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['gross_sales_total']) }}</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['dues_net_change']) }}</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['sales_total']) }}</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['daily_expense_total']) }}</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['cash_collected']) }}</td>
-                        <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($report['staff_paid_total']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['gross_sales_total']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['dues_added']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['dues_recovered']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['dues_net_change']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['sales_total']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['daily_expense_total']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['cash_collected']) }}</td>
+                        <td class="px-4 py-3 summit-money font-semibold">{{ $compactMoney($report['staff_paid_total']) }}</td>
                     </tr>
                 </tbody>
             </table>

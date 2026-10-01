@@ -771,6 +771,17 @@
     white-space: nowrap;
 }
 
+.summit-daily-closing-print-table {
+    table-layout: auto;
+    font-size: 0.78rem;
+}
+
+.summit-daily-closing-print-table th,
+.summit-daily-closing-print-table td {
+    padding: 0.42rem 0.45rem;
+    white-space: nowrap;
+}
+
 .summit-amount-badge {
     display: inline-flex;
     align-items: center;
@@ -918,6 +929,10 @@
     break-inside: avoid;
 }
 
+.summit-print-only {
+    display: none;
+}
+
 .summit-monthly-closing-snapshot {
     display: grid;
     gap: 1rem;
@@ -1054,48 +1069,113 @@
         background: #f1f5f9 !important;
     }
 
-    body.summit-print-snapshot-only * {
-        visibility: hidden !important;
+    body.summit-print-snapshot-only,
+    body.summit-print-monthly-closing-snapshot-only {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        margin: 0 !important;
     }
 
-    body.summit-print-snapshot-only .summit-report-snapshot,
-    body.summit-print-snapshot-only .summit-report-snapshot * {
-        visibility: visible !important;
+    body.summit-print-snapshot-only *:not(:has(.summit-report-snapshot)):not(.summit-report-snapshot):not(:where(.summit-report-snapshot *)),
+    body.summit-print-monthly-closing-snapshot-only *:not(:has(.summit-monthly-closing-snapshot)):not(.summit-monthly-closing-snapshot):not(:where(.summit-monthly-closing-snapshot *)) {
+        display: none !important;
+    }
+
+    body.summit-print-snapshot-only *:has(.summit-report-snapshot),
+    body.summit-print-monthly-closing-snapshot-only *:has(.summit-monthly-closing-snapshot) {
+        background: #ffffff !important;
+        box-shadow: none !important;
+        height: auto !important;
+        margin: 0 !important;
+        max-height: none !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        padding: 0 !important;
     }
 
     body.summit-print-snapshot-only .summit-report-snapshot {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
+        background: #ffffff !important;
         border: 0 !important;
+        box-shadow: none !important;
+        break-inside: auto !important;
+        color: #0f172a !important;
+        margin: 0 !important;
+        page-break-inside: auto !important;
+        padding: 0 !important;
+        position: static !important;
+        width: 100%;
     }
 
     body.summit-print-snapshot-only .summit-report-snapshot .overflow-x-auto {
         overflow: visible !important;
     }
 
+    body.summit-print-snapshot-only .summit-report-snapshot .summit-print-only {
+        display: grid !important;
+        gap: 0.8rem;
+    }
+
+    body.summit-print-snapshot-only .summit-report-snapshot .summit-print-priority-panel {
+        break-inside: auto;
+        page-break-inside: auto;
+    }
+
     body.summit-print-snapshot-only .summit-snapshot-table {
         min-width: 0;
     }
 
-    body.summit-print-monthly-closing-snapshot-only * {
-        visibility: hidden !important;
+    body.summit-print-snapshot-only .summit-report-snapshot .summit-daily-closing-print-table {
+        width: 100%;
+        min-width: 0 !important;
+        font-size: 0.48rem;
+        table-layout: auto;
     }
 
-    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot,
-    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot * {
-        visibility: visible !important;
+    body.summit-print-snapshot-only .summit-report-snapshot .summit-daily-closing-print-table th,
+    body.summit-print-snapshot-only .summit-report-snapshot .summit-daily-closing-print-table td {
+        padding: 0.12rem 0.16rem;
     }
 
     body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
         background: #ffffff !important;
+        break-inside: auto !important;
         color: #0f172a !important;
+        margin: 0 !important;
+        page-break-inside: auto !important;
         padding: 0 !important;
+        position: static !important;
+        width: 100%;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot .overflow-x-auto {
+        overflow: visible !important;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot .summit-panel {
+        break-inside: avoid;
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot .summit-table {
+        min-width: 0 !important;
+        font-size: 0.68rem;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot .summit-print-priority-panel {
+        break-inside: auto;
+        page-break-inside: auto;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot .summit-daily-closing-print-table {
+        width: 100%;
+        font-size: 0.48rem;
+        table-layout: auto;
+    }
+
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot .summit-daily-closing-print-table th,
+    body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot .summit-daily-closing-print-table td {
+        padding: 0.12rem 0.16rem;
     }
 
     body.summit-print-monthly-closing-snapshot-only .summit-monthly-closing-snapshot-list > .fi-sc {

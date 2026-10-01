@@ -1609,6 +1609,20 @@ class GameBillingTest extends TestCase
                 ->assertOk()
                 ->assertDontSee('Staff paid deducted')
                 ->assertSeeInOrder([
+                    'Daily table sales, customer dues, and actual collection',
+                    'Monthly totals below daily table',
+                    'Staff-wise commission and total to be paid',
+                    'Report snapshot',
+                ])
+                ->assertSee('Total sale in the month')
+                ->assertSee('Total dues in the month')
+                ->assertSee('Total expenses in the month')
+                ->assertSee('Total dues remaining in the month')
+                ->assertSee('Total advance paid in the month')
+                ->assertSee('Total to be paid')
+                ->assertSee('Due +')
+                ->assertSee('Due rec.')
+                ->assertSeeInOrder([
                     'Total commission in month',
                     'Rs 200.00',
                     'Paid commission',
@@ -1634,6 +1648,98 @@ class GameBillingTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_monthly_closing_edit_page_shows_printable_day_wise_report(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin',
+            'email' => 'monthly-closing-report-admin@example.test',
+            'role' => 'admin',
+            'password' => 'password',
+        ]);
+
+        foreach ([1, 2, 3, 4] as $number) {
+            SnookerTable::create([
+                'number' => $number,
+                'name' => 'Table '.$number,
+                'hourly_rate' => 10,
+            ]);
+        }
+
+        $staff = Staff::create([
+            'name' => 'Sale Manager',
+            'commission_rate' => 25,
+        ]);
+
+        CashDeposit::create([
+            'deposit_date' => '2026-07-05',
+            'staff_id' => $staff->id,
+            'closing_source' => 'manual',
+            'manual_table_1_sale' => 50000,
+            'manual_expense_total' => 5000,
+            'cash_collected_from_counter' => 45000,
+            'amount_collected_from_staff' => 45000,
+        ]);
+
+        StaffTransaction::create([
+            'staff_id' => $staff->id,
+            'transaction_date' => '2026-07-05',
+            'commission_month' => '2026-07-01',
+            'type' => 'advance',
+            'paid_from' => 'cash',
+            'amount' => 2000,
+        ]);
+
+        $closing = MonthlyClosing::create([
+            'month' => '2026-07-01',
+            'status' => MonthlyClosing::STATUS_DRAFT,
+            'rent_total' => 10000,
+            'rent_paid_amount' => 6000,
+            'rent_paid_from' => 'bank',
+            'construction_deduction_amount' => 4000,
+            'construction_received_amount' => 1000,
+            'construction_account_name' => 'Construction deduction account',
+            'liabilities_verified' => false,
+        ]);
+
+        $this
+            ->actingAs($admin)
+            ->get(route('filament.admin.resources.monthly-closings.edit', ['record' => $closing]))
+            ->assertOk()
+            ->assertSee('Printable monthly closing report')
+            ->assertSee('Print closing report')
+            ->assertSee('Report snapshot')
+            ->assertSeeInOrder([
+                'Printable monthly closing report',
+                'Daily table sales, customer dues, and actual collection',
+                'Monthly totals below daily table',
+                'Staff-wise commission and total to be paid',
+                'Report snapshot',
+            ])
+            ->assertSee('Daily table sales, customer dues, and actual collection')
+            ->assertSee('Monthly totals below daily table')
+            ->assertSee('Total sale in the month')
+            ->assertSee('Total dues in the month')
+            ->assertSee('Total expenses in the month')
+            ->assertSee('Total dues remaining in the month')
+            ->assertSee('Total advance paid in the month')
+            ->assertSee('Total to be paid')
+            ->assertSee('Month totals after expenses, rent, and commission')
+            ->assertSee('Rent deduction')
+            ->assertSee('Overall commission summary')
+            ->assertSee('Staff-wise commission and total to be paid')
+            ->assertSee('Other closing stats')
+            ->assertSee('Day')
+            ->assertSee('T1')
+            ->assertSee('Due +')
+            ->assertSee('Due rec.')
+            ->assertSee('Due bal.')
+            ->assertSee('05')
+            ->assertSee('Rs 50,000.00')
+            ->assertSee('Rs 10,000.00')
+            ->assertSee('Rs 8,750.00')
+            ->assertSee('Sale Manager');
     }
 
     public function test_staff_commission_report_shows_overall_summary_before_staff_wise_bifurcation(): void
