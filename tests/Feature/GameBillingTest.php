@@ -1620,8 +1620,8 @@ class GameBillingTest extends TestCase
                 ->assertSee('Total dues remaining in the month')
                 ->assertSee('Total advance paid in the month')
                 ->assertSee('Total to be paid')
-                ->assertSee('Due +')
-                ->assertSee('Due rec.')
+                ->assertSee('D+')
+                ->assertSee('D rec')
                 ->assertSeeInOrder([
                     'Total commission in month',
                     'Rs 200.00',
@@ -1732,9 +1732,9 @@ class GameBillingTest extends TestCase
             ->assertSee('Other closing stats')
             ->assertSee('Day')
             ->assertSee('T1')
-            ->assertSee('Due +')
-            ->assertSee('Due rec.')
-            ->assertSee('Due bal.')
+            ->assertSee('D+')
+            ->assertSee('D rec')
+            ->assertSee('D bal')
             ->assertSee('05')
             ->assertSee('Rs 50,000.00')
             ->assertSee('Rs 10,000.00')

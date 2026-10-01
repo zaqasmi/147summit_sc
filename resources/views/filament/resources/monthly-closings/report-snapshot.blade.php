@@ -143,13 +143,13 @@
                             <th class="px-4 py-3 summit-money">T{{ $tableNumber }}</th>
                         @endforeach
                         <th class="px-4 py-3 summit-money">Sale</th>
-                        <th class="px-4 py-3 summit-money">Due +</th>
-                        <th class="px-4 py-3 summit-money">Due rec.</th>
-                        <th class="px-4 py-3 summit-money">Due bal.</th>
-                        <th class="px-4 py-3 summit-money">Net sale</th>
-                        <th class="px-4 py-3 summit-money">Expense</th>
-                        <th class="px-4 py-3 summit-money">Collect</th>
-                        <th class="px-4 py-3 summit-money">Staff</th>
+                        <th class="px-4 py-3 summit-money">D+</th>
+                        <th class="px-4 py-3 summit-money">D rec</th>
+                        <th class="px-4 py-3 summit-money">D bal</th>
+                        <th class="px-4 py-3 summit-money">Net</th>
+                        <th class="px-4 py-3 summit-money">Exp</th>
+                        <th class="px-4 py-3 summit-money">Cash</th>
+                        <th class="px-4 py-3 summit-money">Stf</th>
                     </tr>
                 </thead>
                 <tbody>
