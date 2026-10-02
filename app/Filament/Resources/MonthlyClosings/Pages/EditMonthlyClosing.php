@@ -7,6 +7,7 @@ use App\Filament\Resources\MonthlyClosings\Schemas\MonthlyClosingForm;
 use App\Models\MonthlyClosing;
 use App\Models\Staff;
 use App\Models\StaffTransaction;
+use App\Services\MonthlyClosingPreview;
 use App\Services\ReportService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -37,21 +38,24 @@ class EditMonthlyClosing extends EditRecord
                 ->action(function (MonthlyClosing $record, array $data): void {
                     $month = Carbon::parse($record->month)->startOfMonth();
                     $reportService = app(ReportService::class);
+                    $report = $reportService->monthly($month);
 
                     DB::transaction(fn () => Staff::query()
                         ->active()
                         ->commissioned()
                         ->orderBy('name')
                         ->get()
-                        ->each(function (Staff $staff) use ($data, $month, $reportService): void {
+                        ->each(function (Staff $staff) use ($data, $month, $reportService, $report): void {
                             $reportService->generateMonthlyCommission(
                                 $staff,
                                 $month,
                                 paidAmount: max(0, round((float) ($data['staff_'.$staff->id] ?? 0), 2)),
                                 paidFrom: $data['source_'.$staff->id] ?? null,
+                                report: $report,
                             );
                         }));
 
+                    app(MonthlyClosingPreview::class)->clear();
                     $this->refreshFormData(['commission_paid_overrides']);
                     $this->data['commission_paid_overrides'] = MonthlyClosingForm::paymentDefaults($month);
                     $this->data['commission_payment_sources'] = MonthlyClosingForm::paymentSourceDefaults($month);
@@ -67,7 +71,7 @@ class EditMonthlyClosing extends EditRecord
      */
     private function commissionPaymentForm(MonthlyClosing $record): array
     {
-        return collect(app(ReportService::class)->monthly($record->month)['staff_shares'])
+        return collect(app(MonthlyClosingPreview::class)->report($record->month)['staff_shares'])
             ->flatMap(function (array $row): array {
                 $staff = $row['staff'];
                 $alreadyPaid = (float) $row['advance_paid'] + (float) $row['payout_paid'];
@@ -101,7 +105,7 @@ class EditMonthlyClosing extends EditRecord
      */
     private function commissionPaymentDefaults(MonthlyClosing $record): array
     {
-        return collect(app(ReportService::class)->monthly($record->month)['staff_shares'])
+        return collect(app(MonthlyClosingPreview::class)->report($record->month)['staff_shares'])
             ->mapWithKeys(fn (array $row): array => [
                 'staff_'.$row['staff']->id => (float) $row['paid_amount'],
                 'source_'.$row['staff']->id => $row['paid_from'] ?? 'cash',

@@ -494,19 +494,21 @@ class ReportService
         $start = Carbon::parse($month)->startOfMonth();
         $periodEnd = $this->commissionGenerationPeriodEnd($start, $asOf);
 
+        $report = $this->monthly($start, asOf: $periodEnd);
+
         return Staff::query()
             ->active()
             ->commissioned()
             ->orderBy('name')
             ->get()
-            ->map(fn (Staff $staff): MonthlyCommission => $this->generateMonthlyCommission($staff, $start, asOf: $periodEnd));
+            ->map(fn (Staff $staff): MonthlyCommission => $this->generateMonthlyCommission($staff, $start, asOf: $periodEnd, report: $report));
     }
 
-    public function generateMonthlyCommission(Staff $staff, Carbon|string $month, ?float $paidAmount = null, Carbon|string|null $asOf = null, ?string $paidFrom = null): MonthlyCommission
+    public function generateMonthlyCommission(Staff $staff, Carbon|string $month, ?float $paidAmount = null, Carbon|string|null $asOf = null, ?string $paidFrom = null, ?array $report = null): MonthlyCommission
     {
         $start = Carbon::parse($month)->startOfMonth();
         $periodEnd = $this->commissionGenerationPeriodEnd($start, $asOf);
-        $report = $this->monthly($start, asOf: $periodEnd);
+        $report ??= $this->monthly($start, asOf: $periodEnd);
         $existingCommission = MonthlyCommission::query()
             ->where('staff_id', $staff->id)
             ->whereDate('month', $start->toDateString())

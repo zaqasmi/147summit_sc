@@ -40,7 +40,7 @@
         'commission_paid_overrides' => $get('commission_paid_overrides') ?? [],
     ];
 
-    $report = app(\App\Services\ReportService::class)->monthly($monthStart, $closingOverride);
+    $report = \App\Filament\Resources\MonthlyClosings\Schemas\MonthlyClosingForm::previewReport($get, $record);
     $commission = $report['staff_commission_totals'];
     $closing = $report['monthly_closing'];
     $tableNumbers = $report['table_numbers'] ?? [1, 2, 3, 4];
@@ -57,31 +57,6 @@
             : number_format($amount, 2);
     };
     $percent = fn (mixed $amount): string => number_format((float) ($amount ?? 0), 2).'%';
-
-    $snapshotRows = array_filter([
-        ['label' => 'Report month', 'basis' => 'Selected monthly closing', 'value' => $monthLabel, 'numeric' => false],
-        ['label' => 'Period', 'basis' => 'Day-wise rows included', 'value' => $periodLabel, 'numeric' => false],
-        ['label' => 'Closing status', 'basis' => 'Monthly closing record', 'value' => $statusLabel, 'numeric' => false],
-        ['label' => 'Gross sale', 'basis' => 'Before customer dues', 'value' => $money($report['gross_sales_total'])],
-        ['label' => 'Net customer dues', 'basis' => 'Dues added less recovered and discounts', 'value' => $money($report['dues_net_change'])],
-        ['label' => 'Sale after dues', 'basis' => 'Gross sale after customer dues', 'value' => $money($report['sales_total'])],
-        ['label' => 'Daily expenses', 'basis' => 'Non-rent expenses', 'value' => $money($report['daily_expense_total'])],
-        ['label' => 'Rent deduction', 'basis' => 'Full monthly rent before distribution', 'value' => $money($report['rent_expense_total'])],
-        ['label' => 'Total expenses', 'basis' => 'Daily expenses + rent deduction', 'value' => $money($report['expense_total'])],
-        ['label' => 'Cash collected', 'basis' => 'Actual cash collected in month', 'value' => $money($report['cash_collected'])],
-        ['label' => 'Collection after rent', 'basis' => 'Cash collected - rent deduction', 'value' => $money($report['collection_after_rent'])],
-        ['label' => 'Distribution base', 'basis' => 'Net profit after rent adjustment', 'value' => $money($report['commission_distribution_base'])],
-        ['label' => 'Commission rate', 'basis' => 'Effective monthly staff rate', 'value' => $percent($report['overall_commission_rate']), 'numeric' => false],
-        ['label' => 'Commission earned', 'basis' => 'Distribution base x commission rate', 'value' => $money($commission['monthly_commission_to_be_paid'])],
-        ['label' => 'Advance paid', 'basis' => 'Staff advances recorded for this month', 'value' => $money($commission['advance_paid'])],
-        ['label' => 'Paid at monthly closing', 'basis' => 'Payments entered in this closing', 'value' => $money($commission['generated_paid'])],
-        ['label' => 'Remaining staff dues', 'basis' => 'Unpaid balances including previous months', 'value' => $money(collect($report['staff_shares'])->sum(fn ($row) => max(0, $row['remaining_balance'])))],
-        ['label' => 'Advance carried forward', 'basis' => 'Overpaid balances available next month', 'value' => $money(collect($report['staff_shares'])->sum(fn ($row) => max(0, -$row['remaining_balance'])))],
-        ['label' => 'Paid commission', 'basis' => 'Advances, payouts, and generated paid amounts', 'value' => $money($commission['already_paid_this_month'])],
-        ['label' => 'Remaining commission', 'basis' => 'Commission earned less paid commission', 'value' => $money($commission['monthly_remaining'])],
-        ['label' => 'Overall staff remaining', 'basis' => 'Previous balance + current month less paid', 'value' => $money($commission['remaining_balance'])],
-        filled($closing['notes'] ?? null) ? ['label' => 'Closing notes', 'basis' => 'Saved note', 'value' => $closing['notes'], 'numeric' => false] : null,
-    ]);
 
     $closingRows = [
         ['item' => 'Total rent', 'basis' => 'Monthly closing rent amount', 'value' => $money($closing['rent_total'])],
@@ -284,36 +259,6 @@
                 </tfoot>
             </table>
         </div>
-    </div>
-
-    <div class="summit-panel bg-white dark:bg-gray-900">
-        <div class="border-b border-gray-200 px-4 py-3 font-semibold dark:border-gray-800">
-            Report snapshot
-        </div>
-        <div class="overflow-x-auto">
-            <table class="summit-table summit-snapshot-table">
-                <thead>
-                    <tr>
-                        <th class="px-4 py-3">Particular</th>
-                        <th class="px-4 py-3">Basis</th>
-                        <th class="px-4 py-3 summit-money">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($snapshotRows as $row)
-                        <tr>
-                            <td class="px-4 py-3 font-semibold">{{ $row['label'] }}</td>
-                            <td class="px-4 py-3">{{ $row['basis'] }}</td>
-                            <td class="px-4 py-3 font-semibold {{ ($row['numeric'] ?? true) ? 'summit-money' : '' }}">{{ $row['value'] }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="summit-monthly-closing-snapshot-list">
-        {{ $getChildSchema() }}
     </div>
 
     <div class="summit-panel bg-white dark:bg-gray-900">

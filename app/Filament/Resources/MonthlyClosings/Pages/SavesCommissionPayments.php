@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\MonthlyClosings\Pages;
 
 use App\Models\Staff;
+use App\Services\MonthlyClosingPreview;
 use App\Services\ReportService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -41,13 +42,16 @@ trait SavesCommissionPayments
     private function saveCommissionPayments(Model $record, array $payments, array $sources): void
     {
         $service = app(ReportService::class);
+        $report = $service->monthly($record->month);
         foreach (Staff::query()->active()->commissioned()->get() as $staff) {
             $service->generateMonthlyCommission(
                 $staff,
                 $record->month,
                 paidAmount: isset($payments[$staff->id]) ? round((float) $payments[$staff->id], 2) : null,
                 paidFrom: $sources[$staff->id] ?? null,
+                report: $report,
             );
         }
+        app(MonthlyClosingPreview::class)->clear();
     }
 }
