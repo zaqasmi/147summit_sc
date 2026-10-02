@@ -2,8 +2,12 @@
 
 namespace App\Filament\Resources\CashDeposits\Schemas;
 
+use App\Models\BankTransaction;
 use App\Models\CustomerDue;
+use App\Models\CustomerDuePayment;
+use App\Models\Expense;
 use App\Models\GameParticipant;
+use App\Models\Payment;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
@@ -85,6 +89,7 @@ class CashDepositForm
                         Repeater::make('expenses')
                             ->relationship()
                             ->label('Expense items')
+                            ->helperText('These expenses are deducted directly from collection cash. Record other cash or bank expenses under Expenses.')
                             ->defaultItems(0)
                             ->columns([
                                 'default' => 1,
@@ -121,7 +126,9 @@ class CashDepositForm
                                     ->live(onBlur: true)
                                     ->afterStateUpdated(fn (Get $get, Set $set): null => self::updateClosingTotals($get, $set, '../../')),
                                 Hidden::make('paid_from')
-                                    ->default('cash'),
+                                    ->default('cash')
+                                    ->required()
+                                    ->in(fn ($record): array => [$record instanceof Expense ? $record->paid_from : 'cash']),
                             ]),
                         TextInput::make('manual_expense_total')
                             ->label('Expense total')
@@ -231,6 +238,7 @@ class CashDepositForm
                         Repeater::make('customerDuePayments')
                             ->relationship('customerDuePayments')
                             ->label('Dues recovered')
+                            ->helperText('Dues recovered are collected manually in cash and added to collection.')
                             ->defaultItems(0)
                             ->columns([
                                 'default' => 1,
@@ -251,6 +259,10 @@ class CashDepositForm
                             ->mutateRelationshipDataBeforeCreateUsing(fn (array $data, Get $get): ?array => self::customerDuePaymentDataForClosing($data, $get))
                             ->mutateRelationshipDataBeforeSaveUsing(fn (array $data, Get $get): ?array => self::customerDuePaymentDataForClosing($data, $get))
                             ->schema([
+                                Hidden::make('payment_method')
+                                    ->default('cash')
+                                    ->required()
+                                    ->in(fn ($record): array => [$record instanceof CustomerDuePayment ? $record->payment_method : 'cash']),
                                 Select::make('customer_due_id')
                                     ->label('Customer')
                                     ->options(fn (Get $get): array => self::customerDueOptions($get))
@@ -502,7 +514,18 @@ class CashDepositForm
             : 0.0;
         $pettyCash = (float) ($get($prefix.'petty_cash_kept') ?? 0);
         $actualCollected = (float) ($get($prefix.'amount_collected_from_staff') ?? 0);
-        $cashAfterExpenseDue = max(0, $salesTotal - $duesTotal + $duesRecoveredTotal - $expenseTotal);
+        $cashExpenseTotal = self::hasExpenseRows($expenseRows)
+            ? self::expenseRowsTotal(array_filter($expenseRows, fn (array $row): bool => ($row['paid_from'] ?? 'cash') === 'cash'))
+            : $expenseTotal;
+        $bankDueReceipts = is_array($customerDuePaymentRows)
+            ? collect($customerDuePaymentRows)->filter(fn (array $row): bool => BankTransaction::isBankPaymentSource($row['payment_method'] ?? 'cash'))->sum('amount')
+            : 0.0;
+        $bankGameReceipts = self::usesGameSessions($get, $prefix)
+            ? (float) Payment::query()->whereDate('payment_date', $get($prefix.'deposit_date') ?: today())
+                ->whereHas('gameSession', fn ($query) => $query->whereDate('checked_out_at', $get($prefix.'deposit_date') ?: today()))
+                ->whereIn('payment_method', ['bank', 'saving_account'])->sum('amount')
+            : 0.0;
+        $cashAfterExpenseDue = max(0, $salesTotal - $duesTotal + $duesRecoveredTotal - $bankDueReceipts - $bankGameReceipts - $cashExpenseTotal);
         $cashToBeCollected = max(0, $cashAfterExpenseDue - $pettyCash);
 
         return [
@@ -588,7 +611,7 @@ class CashDepositForm
             'category' => array_key_exists($category, self::expenseCategoryOptions()) ? $category : 'General',
             'description' => $description,
             'amount' => round($amount, 2),
-            'paid_from' => 'cash',
+            'paid_from' => $data['paid_from'] ?? 'cash',
             'notes' => null,
         ];
     }
@@ -610,6 +633,7 @@ class CashDepositForm
         return [
             'customer_due_id' => $customerDueId,
             'payment_date' => Carbon::parse($date)->toDateString(),
+            'payment_method' => $data['payment_method'] ?? 'cash',
             'amount' => round($amount, 2),
             'discount_amount' => round(max(0, $discountAmount), 2),
             'notes' => null,

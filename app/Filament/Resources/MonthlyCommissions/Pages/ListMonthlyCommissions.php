@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\MonthlyCommissions\Pages;
 
+use App\Filament\Concerns\ShowsCashBankBalances;
 use App\Filament\Resources\MonthlyCommissions\MonthlyCommissionResource;
 use App\Filament\Resources\MonthlyCommissions\Widgets\StaffCommissionOverallSummary;
+use App\Filament\Widgets\CashToDepositSummary;
 use App\Models\Staff;
 use App\Models\StaffTransaction;
 use App\Services\ReportService;
@@ -21,6 +23,7 @@ use Filament\Widgets\WidgetConfiguration;
 class ListMonthlyCommissions extends ListRecords
 {
     use ExposesTableToWidgets;
+    use ShowsCashBankBalances;
 
     protected static string $resource = MonthlyCommissionResource::class;
 
@@ -123,6 +126,7 @@ class ListMonthlyCommissions extends ListRecords
     protected function getHeaderWidgets(): array
     {
         return [
+            CashToDepositSummary::class,
             StaffCommissionOverallSummary::class,
         ];
     }

@@ -60,6 +60,7 @@ class CustomerDueInfolist
                     ->schema([
                         TextEntry::make('payment_date')
                             ->date(),
+                        TextEntry::make('payment_method_label')->label('Received in'),
                         TextEntry::make('cashDeposit.deposit_date')
                             ->label('Daily closing')
                             ->date()

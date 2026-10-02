@@ -50,7 +50,7 @@ class CompactFinancialOverview extends Widget
             'heroStats' => [
                 $this->stat('Total collection', $business['total_collection'], 'Actual cash collected after unpaid customer dues.', 'heroicon-o-banknotes', 'success'),
                 $this->stat('Cash in bank', $bank['cash_in_bank'], 'Only money actually deposited in bank minus bank outflows.', 'heroicon-o-building-library', ((float) $bank['cash_in_bank']) >= 0 ? 'success' : 'danger'),
-                $this->stat('Cash pending bank', $bank['collection_cash_pending_deposit'], 'Collected cash not yet deposited after cash payments and construction recovery.', 'heroicon-o-inbox-stack', ((float) $bank['collection_cash_pending_deposit']) > 0 ? 'warning' : 'success'),
+                $this->stat('Cash to be deposited in bank', $bank['collection_cash_pending_deposit'], 'Collected cash not yet deposited after cash payments and construction recovery.', 'heroicon-o-inbox-stack', ((float) $bank['collection_cash_pending_deposit']) > 0 ? 'warning' : 'success'),
                 $this->stat('Salesmen commission', $business['staff_commission'], 'Commission earned from cash profit.', 'heroicon-o-receipt-percent', 'warning'),
                 $this->stat('Paid commission till now', $staffShare['amount_paid_total'], 'Advances, payouts, and monthly commission paid up to this date.', 'heroicon-o-wallet', ((float) $staffShare['amount_paid_total']) > 0 ? 'success' : 'gray'),
                 $this->stat('My profit', $business['my_profit'], 'Owner profit after expenses and staff commission.', 'heroicon-o-arrow-trending-up', ((float) $business['my_profit']) >= 0 ? 'success' : 'danger'),
@@ -83,13 +83,15 @@ class CompactFinancialOverview extends Widget
                     ],
                 ],
                 [
-                    'title' => 'Bank account',
+                    'title' => 'Bank accounts',
                     'description' => 'Real bank movement plus cash still outside bank after cash payments and construction recovery.',
                     'accent' => 'violet',
                     'icon' => 'heroicon-o-building-library',
                     'stats' => [
+                        $this->stat('RF Account', $bank['account_balances']['rf_account'], 'Balance in RF Account.', 'heroicon-o-building-library', 'info'),
+                        $this->stat('Saving Account', $bank['account_balances']['saving_account'], 'Balance in Saving Account.', 'heroicon-o-building-library', 'info'),
                         $this->stat('Collection deposits', $bank['daily_deposits'], 'Collected cash deposited on actual bank deposit dates.', 'heroicon-o-arrow-down-circle', 'success'),
-                        $this->stat('Pending deposit', $bank['collection_cash_pending_deposit'], 'Actual collected cash still outside bank after cash payments and construction recovery.', 'heroicon-o-inbox-stack', ((float) $bank['collection_cash_pending_deposit']) > 0 ? 'warning' : 'success'),
+                        $this->stat('Cash to be deposited in bank', $bank['collection_cash_pending_deposit'], 'Actual collected cash still outside bank after cash payments and construction recovery.', 'heroicon-o-inbox-stack', ((float) $bank['collection_cash_pending_deposit']) > 0 ? 'warning' : 'success'),
                         $this->stat('Cash staff paid', $bank['cash_staff_payments_pending_deduction'], 'Cash payments to staff deducted from pending deposit.', 'heroicon-o-wallet', ((float) $bank['cash_staff_payments_pending_deduction']) > 0 ? 'warning' : 'gray'),
                         $this->stat('Cash rent paid', $bank['cash_rent_payments_pending_deduction'], 'Monthly rent paid from cash deducted from pending deposit.', 'heroicon-o-home-modern', ((float) $bank['cash_rent_payments_pending_deduction']) > 0 ? 'warning' : 'gray'),
                         $this->stat('Cash expenses', $bank['cash_expenses_pending_deduction'], 'Standalone non-rent expenses paid from cash.', 'heroicon-o-receipt-refund', ((float) $bank['cash_expenses_pending_deduction']) > 0 ? 'warning' : 'gray'),

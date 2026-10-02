@@ -84,10 +84,7 @@ class MonthlyClosing extends Model
      */
     public static function paidFromOptions(): array
     {
-        return [
-            'cash' => 'Cash from collection',
-            'bank' => 'Bank',
-        ];
+        return BankTransaction::paymentSourceOptions();
     }
 
     /**

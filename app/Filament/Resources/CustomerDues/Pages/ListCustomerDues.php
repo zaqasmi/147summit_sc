@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CustomerDues\Pages;
 
+use App\Filament\Concerns\ShowsCashBankBalances;
 use App\Filament\Resources\CustomerDues\CustomerDueResource;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -9,6 +10,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListCustomerDues extends ListRecords
 {
+    use ShowsCashBankBalances;
+
     protected static string $resource = CustomerDueResource::class;
 
     protected function getHeaderActions(): array

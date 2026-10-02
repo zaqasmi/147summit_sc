@@ -11,6 +11,7 @@ class BankTransactionInfolist
     {
         return $schema
             ->components([
+                TextEntry::make('bank_account_label')->label('Bank account'),
                 TextEntry::make('transaction_date')
                     ->date(),
                 TextEntry::make('entry_side_label')

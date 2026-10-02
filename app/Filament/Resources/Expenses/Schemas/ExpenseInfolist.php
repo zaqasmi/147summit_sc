@@ -20,7 +20,7 @@ class ExpenseInfolist
                 TextEntry::make('description'),
                 TextEntry::make('amount')
                     ->numeric(),
-                TextEntry::make('paid_from'),
+                TextEntry::make('paid_from_label')->label('Paid from'),
                 TextEntry::make('notes')
                     ->placeholder('-')
                     ->columnSpanFull(),

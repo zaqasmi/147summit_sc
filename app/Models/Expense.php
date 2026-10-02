@@ -55,6 +55,16 @@ class Expense extends Model
         return $this->belongsTo(Staff::class);
     }
 
+    public static function paidFromOptions(): array
+    {
+        return BankTransaction::paymentSourceOptions();
+    }
+
+    public function getPaidFromLabelAttribute(): string
+    {
+        return self::paidFromOptions()[$this->paid_from] ?? ucfirst(str_replace('_', ' ', (string) $this->paid_from));
+    }
+
     public function cashDeposit(): BelongsTo
     {
         return $this->belongsTo(CashDeposit::class);

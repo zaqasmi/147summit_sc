@@ -2,11 +2,12 @@
 
 namespace App\Filament\Resources\MonthlyCommissions\Schemas;
 
+use App\Models\StaffTransaction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
 class MonthlyCommissionForm
@@ -60,6 +61,11 @@ class MonthlyCommissionForm
                     ->required()
                     ->numeric()
                     ->default(0),
+                Select::make('paid_from')
+                    ->label('Closing payment from')
+                    ->options(StaffTransaction::paidFromOptions())
+                    ->required()
+                    ->default('cash'),
                 TextInput::make('balance_due')
                     ->prefix('Rs')
                     ->required()

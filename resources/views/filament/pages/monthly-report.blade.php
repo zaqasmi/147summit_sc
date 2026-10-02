@@ -16,7 +16,7 @@
                 : number_format($amount, 2);
         };
         $rentSplitDifference = round((float) $closing['rent_total'] - (float) $closing['rent_paid_amount'] - (float) $closing['construction_deduction_amount'], 2);
-        $rentPaidFromLabel = ['bank' => 'Bank', 'cash' => 'Cash from collection'][$closing['rent_paid_from'] ?? 'bank'] ?? ucfirst(str_replace('_', ' ', (string) ($closing['rent_paid_from'] ?? 'bank')));
+        $rentPaidFromLabel = \App\Models\MonthlyClosing::paidFromOptions()[$closing['rent_paid_from'] ?? 'bank'] ?? ucfirst(str_replace('_', ' ', (string) ($closing['rent_paid_from'] ?? 'bank')));
         $closingSourceLabel = ucfirst(str_replace('_', ' ', (string) $closing['source']));
         $monthlyStats = array_filter([
             ['label' => 'Overall commission rate', 'value' => $this->percent($report['overall_commission_rate']), 'tone' => 'amber'],
@@ -67,6 +67,8 @@
             ['item' => 'Total to be paid', 'basis' => 'Remaining amount payable to commission staff', 'value' => $this->money($commission['total_to_be_paid_this_month'])],
         ];
     @endphp
+
+    @include('filament.components.cash-bank-summary', ['asOf' => $report['period_end']])
 
     <div class="summit-report-toolbar">
         <label class="grid gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -162,8 +164,9 @@
                             <td class="px-4 py-3 font-semibold">Paid from</td>
                             <td class="px-4 py-3 summit-form-cell">
                                 <select wire:model.live="rentPaidFrom" @disabled(! $canEditMonthlyClosing) class="summit-date-input">
-                                    <option value="bank">Bank</option>
-                                    <option value="cash">Cash from collection</option>
+                                    @foreach (\App\Models\MonthlyClosing::paidFromOptions() as $source => $label)
+                                        <option value="{{ $source }}">{{ $label }}</option>
+                                    @endforeach
                                 </select>
                             </td>
                             <td class="px-4 py-3">{{ $rentPaidFromLabel }}</td>
@@ -220,6 +223,7 @@
                             <th class="px-4 py-3 summit-money">Advance paid</th>
                             <th class="px-4 py-3 summit-money">Other payouts</th>
                             <th class="px-4 py-3 summit-money">Total paid at closing</th>
+                            <th class="px-4 py-3">Paid from</th>
                             <th class="px-4 py-3 summit-money">Remaining due</th>
                             <th class="px-4 py-3 summit-money">Advance carried forward</th>
                         </tr>
@@ -243,12 +247,24 @@
                                         class="summit-date-input"
                                     />
                                 </td>
+                                <td class="px-4 py-3 summit-form-cell">
+                                    <select wire:model.live="staffCommissionPaymentSources.{{ $row['staff']->id }}"
+                                        aria-label="{{ $row['staff']->name }} paid from"
+                                        @disabled(! $canEditMonthlyClosing) class="summit-date-input">
+                                        @foreach (\App\Models\StaffTransaction::paidFromOptions() as $source => $label)
+                                            <option value="{{ $source }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('staffCommissionPaymentSources.'.$row['staff']->id)
+                                        <span class="text-red-600">{{ $message }}</span>
+                                    @enderror
+                                </td>
                                 <td class="px-4 py-3 summit-money font-semibold">{{ $this->money(max(0, $row['remaining_balance'])) }}</td>
                                 <td class="px-4 py-3 summit-money font-semibold">{{ $this->money(max(0, -$row['remaining_balance'])) }}</td>
                             </tr>
                         @empty
                             <tr>
-                                <td class="px-4 py-3" colspan="8">No active commission staff found.</td>
+                                <td class="px-4 py-3" colspan="9">No active commission staff found.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -260,6 +276,7 @@
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['advance_paid']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['payout_paid']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['generated_paid']) }}</td>
+                            <td class="px-4 py-3">—</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money(collect($report['staff_shares'])->sum(fn ($row) => max(0, $row['remaining_balance']))) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $this->money(collect($report['staff_shares'])->sum(fn ($row) => max(0, -$row['remaining_balance']))) }}</td>
                         </tr>

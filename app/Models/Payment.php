@@ -48,12 +48,24 @@ class Payment extends Model
         });
 
         static::saved(function (Payment $payment): void {
+            BankTransaction::syncFromReceipt($payment);
             app(GameBillingService::class)->recalculate($payment->gameSession);
         });
 
         static::deleted(function (Payment $payment): void {
+            BankTransaction::deleteForSource(BankTransaction::SOURCE_PAYMENT, $payment->id);
             app(GameBillingService::class)->recalculate($payment->gameSession);
         });
+    }
+
+    public static function methodOptions(): array
+    {
+        return ['cash' => 'Cash', 'bank' => 'RF Account', 'saving_account' => 'Saving Account', 'other' => 'Other'];
+    }
+
+    public function getPaymentMethodLabelAttribute(): string
+    {
+        return self::methodOptions()[$this->payment_method] ?? ucfirst(str_replace('_', ' ', (string) $this->payment_method));
     }
 
     public function gameSession(): BelongsTo

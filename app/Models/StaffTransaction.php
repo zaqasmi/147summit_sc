@@ -18,6 +18,7 @@ class StaffTransaction extends Model
         'bank',
         'easy_paisa',
         'other_bank',
+        'saving_account',
     ];
 
     protected $fillable = [
@@ -78,10 +79,7 @@ class StaffTransaction extends Model
 
     public static function paidFromOptions(): array
     {
-        return [
-            'cash' => 'Cash from collection',
-            'bank' => 'Bank',
-        ];
+        return BankTransaction::paymentSourceOptions();
     }
 
     public static function isBankPaidSource(?string $source): bool

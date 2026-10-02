@@ -7,6 +7,34 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Updating the live server: RF Account and Saving Account
+
+The existing bank ledger is retained as RF Account. Existing `bank_transactions.id`
+and `source_id` values remain unchanged. Existing payment sources stored as `bank`
+continue to use that same value and display as RF Account. This project does not have
+a separate numeric bank-account ID or a `bank_accounts` table; the new
+`bank_transactions.bank_account` column defaults existing rows to `rf_account`.
+Saving Account uses the new `saving_account` value.
+
+After backing up the live database and deploying the code, run these commands from
+the application directory using the live server's existing `.env`:
+
+```bash
+php artisan migrate --force
+php artisan optimize:clear
+```
+
+Use the normal incremental migration command above. Do not use `migrate:fresh`,
+`migrate:refresh`, or setup/demo seeders for this upgrade; they are not part of the
+live update. `SingleBankAccountSetupSeeder` reconciles fixed opening balances and
+must not be rerun as part of deployment. No account-creation or balance-reset seeder
+is required. The two new migrations add fields to the existing tables.
+
+After upgrading, confirm that pre-existing transaction IDs are unchanged, existing
+bank transactions show RF Account, and Saving Account starts at zero until a
+transaction is explicitly assigned to it. Past commission payments with no recorded
+payment source retain that unknown source until the closing is edited.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

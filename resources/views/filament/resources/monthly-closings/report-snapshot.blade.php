@@ -134,6 +134,8 @@
         </button>
     </div>
 
+    @include('filament.components.cash-bank-summary', ['asOf' => $report['period_end']])
+
     <div class="summit-panel summit-print-priority-panel bg-white dark:bg-gray-900">
         <div class="border-b border-gray-200 px-4 py-3 dark:border-gray-800">
             <div class="font-semibold">Daily table sales, customer dues, and actual collection</div>
@@ -240,6 +242,7 @@
                         <th class="px-4 py-3 summit-money">Monthly commission</th>
                         <th class="px-4 py-3 summit-money">Advance</th>
                         <th class="px-4 py-3 summit-money">Paid</th>
+                        <th class="px-4 py-3">Closing payment from</th>
                         <th class="px-4 py-3 summit-money">Already paid this month</th>
                         <th class="px-4 py-3 summit-money">Total to be paid this month</th>
                         <th class="px-4 py-3 summit-money">Overall remaining</th>
@@ -255,13 +258,14 @@
                             <td class="px-4 py-3 summit-money font-semibold">{{ $money($row['monthly_commission_to_be_paid']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $money($row['advance_paid']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $money($row['payout_paid'] + $row['paid_amount']) }}</td>
+                            <td class="px-4 py-3">{{ \App\Models\StaffTransaction::paidFromOptions()[$get('commission_payment_sources')[$row['staff']->id] ?? $row['paid_from'] ?? ''] ?? 'Not recorded' }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $money($row['already_paid_this_month']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $money($row['total_to_be_paid_this_month']) }}</td>
                             <td class="px-4 py-3 summit-money font-semibold">{{ $money($row['remaining_balance']) }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td class="px-4 py-3" colspan="10">No active commission staff found.</td>
+                            <td class="px-4 py-3" colspan="11">No active commission staff found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -272,6 +276,7 @@
                         <td class="px-4 py-3 summit-money font-semibold">{{ $money($commission['monthly_commission_to_be_paid']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $money($commission['advance_paid']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $money((float) $commission['payout_paid'] + (float) $commission['generated_paid']) }}</td>
+                        <td class="px-4 py-3">—</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $money($commission['already_paid_this_month']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $money($commission['total_to_be_paid_this_month']) }}</td>
                         <td class="px-4 py-3 summit-money font-semibold">{{ $money($commission['remaining_balance']) }}</td>

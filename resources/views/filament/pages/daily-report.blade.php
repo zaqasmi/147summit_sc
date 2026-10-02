@@ -20,6 +20,8 @@
         </button>
     </div>
 
+    @include('filament.components.cash-bank-summary', ['asOf' => $this->date ?? today()])
+
     <div class="summit-stat-grid">
         @foreach ([
             ['label' => 'Table sales', 'amount' => $report['sales_total'], 'tone' => 'teal'],

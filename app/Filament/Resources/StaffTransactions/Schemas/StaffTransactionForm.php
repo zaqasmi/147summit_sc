@@ -54,7 +54,7 @@ class StaffTransactionForm
                     ->options(StaffTransaction::paidFromOptions())
                     ->required()
                     ->default('cash')
-                    ->helperText('Cash reduces cash pending bank deposit. Bank creates a bank ledger debit.'),
+                    ->helperText('Collection payments reduce pending cash. RF Account and Saving Account payments debit the selected bank.'),
                 TextInput::make('amount')
                     ->prefix('Rs')
                     ->required()

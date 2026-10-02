@@ -67,6 +67,7 @@ class CashDepositInfolist
                             ->label('Customer'),
                         TextEntry::make('payment_date')
                             ->date(),
+                        TextEntry::make('payment_method_label')->label('Received in'),
                         TextEntry::make('amount')
                             ->label('Amount paid')
                             ->formatStateUsing(fn ($state): string => 'Rs '.number_format((float) $state, 2)),
@@ -86,7 +87,7 @@ class CashDepositInfolist
                         TextEntry::make('description'),
                         TextEntry::make('amount')
                             ->formatStateUsing(fn ($state): string => 'Rs '.number_format((float) $state, 2)),
-                        TextEntry::make('paid_from')
+                        TextEntry::make('paid_from_label')
                             ->label('Paid from'),
                     ])
                     ->columns([

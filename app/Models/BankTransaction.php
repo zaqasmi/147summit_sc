@@ -24,6 +24,12 @@ class BankTransaction extends Model
 
     public const SOURCE_STAFF_TRANSACTION = 'staff_transaction';
 
+    public const SOURCE_MONTHLY_COMMISSION = 'monthly_commission';
+
+    public const SOURCE_PAYMENT = 'payment';
+
+    public const SOURCE_CUSTOMER_DUE_PAYMENT = 'customer_due_payment';
+
     private const INFLOW_TYPES = [
         'daily_collection_deposit',
         'other_payment_received',
@@ -55,6 +61,7 @@ class BankTransaction extends Model
 
     protected $fillable = [
         'transaction_date',
+        'bank_account',
         'type',
         'amount',
         'deposit_slip_number',
@@ -64,6 +71,45 @@ class BankTransaction extends Model
         'description',
         'notes',
     ];
+
+    protected $attributes = ['bank_account' => 'rf_account'];
+
+    public static function accountOptions(): array
+    {
+        return ['rf_account' => 'RF Account', 'saving_account' => 'Saving Account'];
+    }
+
+    public static function paymentSourceOptions(): array
+    {
+        // Preserve the legacy stored key "bank" for RF Account on live databases.
+        return ['cash' => 'Cash from collection', 'bank' => 'RF Account', 'saving_account' => 'Saving Account'];
+    }
+
+    public static function isBankPaymentSource(?string $source): bool
+    {
+        return in_array($source, ['bank', 'saving_account', 'easy_paisa', 'other_bank'], true);
+    }
+
+    public static function accountForPaymentSource(?string $source): string
+    {
+        return $source === 'saving_account' ? 'saving_account' : 'rf_account';
+    }
+
+    public static function availableCashForDeposit(Carbon|string|null $date = null, ?self $record = null): float
+    {
+        $date = Carbon::parse($date ?? today());
+        $available = (float) self::summary($date)['cash_available_for_deposit'];
+        if ($record?->type === 'daily_collection_deposit' && $record->transaction_date->lte($date)) {
+            $available += (float) $record->amount;
+        }
+
+        return round(max(0, $available), 2);
+    }
+
+    public function getBankAccountLabelAttribute(): string
+    {
+        return self::accountOptions()[$this->bank_account] ?? 'RF Account';
+    }
 
     protected function casts(): array
     {
@@ -156,7 +202,7 @@ class BankTransaction extends Model
 
     public static function syncFromCapitalLiabilityPayment(CapitalLiabilityPayment $payment): void
     {
-        if ($payment->paid_from !== 'bank' || (float) $payment->amount <= 0) {
+        if (! self::isBankPaymentSource($payment->paid_from) || (float) $payment->amount <= 0) {
             self::deleteForSource(self::SOURCE_CAPITAL_LIABILITY_PAYMENT, $payment->id);
 
             return;
@@ -173,6 +219,7 @@ class BankTransaction extends Model
             [
                 'transaction_date' => $payment->payment_date?->toDateString() ?? today()->toDateString(),
                 'type' => self::installmentTypeFor($liability),
+                'bank_account' => self::accountForPaymentSource($payment->paid_from),
                 'amount' => round((float) $payment->amount, 2),
                 'description' => trim('Bank installment: '.($liability?->title ?? '')),
                 'notes' => $payment->notes,
@@ -208,7 +255,7 @@ class BankTransaction extends Model
 
     public static function syncFromExpense(Expense $expense): void
     {
-        if ($expense->isRent() || $expense->paid_from !== 'bank' || (float) $expense->amount <= 0) {
+        if ($expense->isRent() || ! self::isBankPaymentSource($expense->paid_from) || (float) $expense->amount <= 0) {
             self::deleteForSource(self::SOURCE_EXPENSE, $expense->id);
 
             return;
@@ -222,6 +269,7 @@ class BankTransaction extends Model
             [
                 'transaction_date' => $expense->expense_date?->toDateString() ?? today()->toDateString(),
                 'type' => 'expense_paid',
+                'bank_account' => self::accountForPaymentSource($expense->paid_from),
                 'amount' => round((float) $expense->amount, 2),
                 'description' => trim('Bank expense: '.$expense->description),
                 'notes' => $expense->notes,
@@ -232,7 +280,7 @@ class BankTransaction extends Model
     public static function syncFromMonthlyClosing(MonthlyClosing $closing): void
     {
         if (
-            $closing->rent_paid_from !== 'bank'
+            ! self::isBankPaymentSource($closing->rent_paid_from)
             || (float) $closing->rent_paid_amount <= 0
         ) {
             self::deleteForSource(self::SOURCE_MONTHLY_CLOSING, $closing->id);
@@ -248,6 +296,7 @@ class BankTransaction extends Model
             [
                 'transaction_date' => $closing->month?->copy()->endOfMonth()->toDateString() ?? today()->toDateString(),
                 'type' => 'rent_paid',
+                'bank_account' => self::accountForPaymentSource($closing->rent_paid_from),
                 'amount' => round((float) $closing->rent_paid_amount, 2),
                 'description' => 'Monthly rent paid: '.$closing->month?->format('F Y'),
                 'notes' => $closing->notes,
@@ -301,9 +350,31 @@ class BankTransaction extends Model
             [
                 'transaction_date' => $transaction->transaction_date?->toDateString() ?? today()->toDateString(),
                 'type' => 'staff_payment',
+                'bank_account' => $transaction->paid_from === 'saving_account' ? 'saving_account' : 'rf_account',
                 'amount' => round((float) $transaction->amount, 2),
                 'description' => $description,
                 'notes' => 'Paid from '.$paidFromLabel,
+            ],
+        );
+    }
+
+    public static function syncFromReceipt(Payment|CustomerDuePayment $payment): void
+    {
+        $source = $payment instanceof Payment ? self::SOURCE_PAYMENT : self::SOURCE_CUSTOMER_DUE_PAYMENT;
+        if (! self::isBankPaymentSource($payment->payment_method) || (float) $payment->amount <= 0) {
+            self::deleteForSource($source, $payment->id);
+
+            return;
+        }
+        self::query()->updateOrCreate(
+            ['source_type' => $source, 'source_id' => $payment->id],
+            [
+                'transaction_date' => $payment->payment_date,
+                'bank_account' => self::accountForPaymentSource($payment->payment_method),
+                'type' => 'other_payment_received',
+                'amount' => round((float) $payment->amount, 2),
+                'description' => $payment instanceof Payment ? 'Game payment #'.$payment->id : 'Customer due recovered #'.$payment->id,
+                'notes' => $payment->notes,
             ],
         );
     }
@@ -320,19 +391,44 @@ class BankTransaction extends Model
             ->delete();
     }
 
+    public static function syncFromMonthlyCommission(MonthlyCommission $commission): void
+    {
+        if (! StaffTransaction::isBankPaidSource($commission->paid_from) || (float) $commission->paid_amount <= 0) {
+            self::deleteForSource(self::SOURCE_MONTHLY_COMMISSION, $commission->id);
+
+            return;
+        }
+
+        self::query()->updateOrCreate(
+            ['source_type' => self::SOURCE_MONTHLY_COMMISSION, 'source_id' => $commission->id],
+            [
+                'transaction_date' => $commission->paid_on?->toDateString() ?? $commission->month->copy()->endOfMonth()->toDateString(),
+                'bank_account' => $commission->paid_from === 'saving_account' ? 'saving_account' : 'rf_account',
+                'type' => 'staff_payment',
+                'amount' => round((float) $commission->paid_amount, 2),
+                'description' => 'Monthly closing staff payment: '.$commission->staff?->name.' ('.$commission->month->format('F Y').')',
+                'notes' => 'Paid from '.$commission->paid_from_label,
+            ],
+        );
+    }
+
     /**
-     * @return array<string, float|int|string>
+     * @return array<string, mixed>
      */
     public static function summary(Carbon|string|null $asOf = null): array
     {
         self::syncCapitalLiabilityPaymentLedger();
         self::syncMonthlyClosingLedger();
+        self::query()->where('source_type', self::SOURCE_PAYMENT)
+            ->whereNotIn('source_id', Payment::query()->select('id'))->delete();
+        self::query()->where('source_type', self::SOURCE_CUSTOMER_DUE_PAYMENT)
+            ->whereNotIn('source_id', CustomerDuePayment::query()->select('id'))->delete();
 
         $asOfDate = Carbon::parse($asOf ?? today())->toDateString();
         $asOfMonth = Carbon::parse($asOfDate)->startOfMonth()->toDateString();
         $transactions = self::query()
             ->whereDate('transaction_date', '<=', $asOfDate)
-            ->get(['type', 'amount']);
+            ->get(['type', 'amount', 'bank_account']);
 
         $sum = fn (array $types): float => round((float) $transactions
             ->whereIn('type', $types)
@@ -344,6 +440,16 @@ class BankTransaction extends Model
         $cashCollectedFromClosings = round((float) CashDeposit::query()
             ->whereDate('deposit_date', '<=', $asOfDate)
             ->sum('amount_collected_from_staff'), 2);
+        // A daily closing replaces that day's individual game cash receipts.
+        $cashGameReceiptsWithoutClosing = round((float) Payment::query()
+            ->where('payment_method', 'cash')
+            ->whereDate('payment_date', '<=', $asOfDate)
+            ->whereNotExists(fn ($query) => $query->selectRaw('1')->from('cash_deposits')
+                ->whereColumn('cash_deposits.deposit_date', 'payments.payment_date'))
+            ->sum('amount'), 2);
+        $cashDueReceiptsWithoutClosing = round((float) CustomerDuePayment::query()
+            ->where('payment_method', 'cash')->whereNull('cash_deposit_id')
+            ->whereDate('payment_date', '<=', $asOfDate)->sum('amount'), 2);
         $cashStaffPayments = round((float) StaffTransaction::query()
             ->where('paid_from', 'cash')
             ->whereNull('cash_deposit_id')
@@ -354,6 +460,10 @@ class BankTransaction extends Model
             ->where('rent_paid_from', 'cash')
             ->whereDate('month', '<=', $asOfMonth)
             ->sum('rent_paid_amount'), 2);
+        $cashStaffPayments += round((float) MonthlyCommission::query()
+            ->where('paid_from', 'cash')
+            ->whereDate('paid_on', '<=', $asOfDate)
+            ->sum('paid_amount'), 2);
         $cashExpensePayments = round((float) Expense::query()
             ->where('paid_from', 'cash')
             ->whereNull('cash_deposit_id')
@@ -369,7 +479,9 @@ class BankTransaction extends Model
             ->whereDate('month', '<=', $asOfMonth)
             ->sum('construction_received_amount'), 2);
         $cashOutflowDeductions = round($cashStaffPayments + $cashRentPayments + $cashExpensePayments + $cashInstallmentPayments + $constructionOtherAccountReceipts, 2);
-        $collectionCashPendingDeposit = round(max(0, $cashCollectedFromClosings + $pendingCashAdjustmentIn - $cashOutflowDeductions - $dailyDeposits - $pendingCashAdjustmentOut), 2);
+        $cashReceiptsOutsideClosings = round($cashGameReceiptsWithoutClosing + $cashDueReceiptsWithoutClosing, 2);
+        $cashAvailableForDeposit = round($cashCollectedFromClosings + $cashReceiptsOutsideClosings + $pendingCashAdjustmentIn - $cashOutflowDeductions - $dailyDeposits - $pendingCashAdjustmentOut, 2);
+        $collectionCashPendingDeposit = max(0, $cashAvailableForDeposit);
         $otherPaymentsReceived = $sum(['other_payment_received']);
         $loanReceived = $sum(['loan_received']);
         $ownerDeposits = $sum(['owner_deposit']);
@@ -392,7 +504,15 @@ class BankTransaction extends Model
             'as_of' => $asOfDate,
             'transaction_count' => $transactions->count(),
             'cash_in_bank' => round($totalInflows - $totalOutflows, 2),
+            'account_balances' => collect(self::accountOptions())->mapWithKeys(function (string $label, string $account) use ($transactions): array {
+                $entries = $transactions->where('bank_account', $account);
+
+                return [$account => round((float) $entries->whereIn('type', self::INFLOW_TYPES)->sum('amount')
+                    - (float) $entries->whereIn('type', self::OUTFLOW_TYPES)->sum('amount'), 2)];
+            })->all(),
             'cash_collected_from_closings' => $cashCollectedFromClosings,
+            'cash_receipts_outside_closings' => $cashReceiptsOutsideClosings,
+            'cash_available_for_deposit' => $cashAvailableForDeposit,
             'cash_staff_payments_pending_deduction' => $cashStaffPayments,
             'cash_rent_payments_pending_deduction' => $cashRentPayments,
             'cash_expenses_pending_deduction' => $cashExpensePayments,
@@ -403,6 +523,9 @@ class BankTransaction extends Model
             'pending_cash_adjustment_out' => $pendingCashAdjustmentOut,
             'collection_cash_pending_deposit' => $collectionCashPendingDeposit,
             'daily_deposits' => $dailyDeposits,
+            'deposits_by_account' => collect(self::accountOptions())->mapWithKeys(fn (string $label, string $account): array => [
+                $account => round((float) $transactions->where('bank_account', $account)->where('type', 'daily_collection_deposit')->sum('amount'), 2),
+            ])->all(),
             'other_payments_received' => $otherPaymentsReceived,
             'loan_received' => $loanReceived,
             'owner_deposits' => $ownerDeposits,
@@ -444,6 +567,9 @@ class BankTransaction extends Model
             self::SOURCE_OPENING_BANK_BALANCE => 'Opening bank balance',
             self::SOURCE_OPENING_PENDING_CASH => 'Opening pending cash',
             self::SOURCE_STAFF_TRANSACTION => 'Staff transaction',
+            self::SOURCE_MONTHLY_COMMISSION => 'Monthly commission payment',
+            self::SOURCE_PAYMENT => 'Game payment',
+            self::SOURCE_CUSTOMER_DUE_PAYMENT => 'Customer due payment',
         ];
     }
 

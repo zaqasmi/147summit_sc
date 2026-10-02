@@ -240,7 +240,7 @@ class GameSessionActions
                 ))
                     ->columnSpanFull(),
                 TextInput::make('amount')
-                    ->label('Cash to collect now')
+                    ->label('Amount to collect now')
                     ->prefix('Rs')
                     ->numeric()
                     ->required()

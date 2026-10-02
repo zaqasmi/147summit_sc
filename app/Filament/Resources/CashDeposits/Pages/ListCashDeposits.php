@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CashDeposits\Pages;
 
+use App\Filament\Concerns\ShowsCashBankBalances;
 use App\Filament\Resources\CashDeposits\CashDepositResource;
 use App\Models\Staff;
 use App\Models\StaffTransaction;
@@ -17,6 +18,8 @@ use Filament\Schemas\Components\Utilities\Get;
 
 class ListCashDeposits extends ListRecords
 {
+    use ShowsCashBankBalances;
+
     protected static string $resource = CashDepositResource::class;
 
     protected function getHeaderActions(): array
@@ -59,7 +62,7 @@ class ListCashDeposits extends ListRecords
                         ->options(StaffTransaction::paidFromOptions())
                         ->default('cash')
                         ->required()
-                        ->helperText('Cash reduces cash pending bank deposit. Bank creates a bank ledger debit.'),
+                        ->helperText('Collection payments reduce cash to be deposited. RF Account and Saving Account payments debit the selected bank.'),
                     TextInput::make('amount')
                         ->label('Advance amount')
                         ->prefix('Rs')

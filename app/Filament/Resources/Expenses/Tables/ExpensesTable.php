@@ -3,11 +3,13 @@
 namespace App\Filament\Resources\Expenses\Tables;
 
 use App\Filament\Support\TableSummaries;
+use App\Models\Expense;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class ExpensesTable
@@ -36,8 +38,7 @@ class ExpensesTable
                     ->formatStateUsing(fn ($state): string => 'Rs '.number_format((float) $state, 2))
                     ->summarize(TableSummaries::moneyTotal())
                     ->sortable(),
-                TextColumn::make('paid_from')
-                    ->searchable(),
+                TextColumn::make('paid_from_label')->label('Paid from')->badge(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -48,7 +49,7 @@ class ExpensesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('paid_from')->label('Paid from')->options(Expense::paidFromOptions()),
             ])
             ->recordActions([
                 ViewAction::make(),

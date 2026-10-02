@@ -23,6 +23,8 @@
         </button>
     </div>
 
+    @include('filament.components.cash-bank-summary', ['asOf' => $report['year']->copy()->endOfYear()])
+
     <div class="summit-stat-grid">
         @foreach ([
             ['label' => 'Sales after dues', 'amount' => $report['sales_total'], 'tone' => 'green'],

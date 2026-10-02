@@ -25,7 +25,7 @@ class PaymentInfolist
                     ->placeholder('-'),
                 TextEntry::make('payment_date')
                     ->date(),
-                TextEntry::make('payment_method'),
+                TextEntry::make('payment_method_label')->label('Received in'),
                 TextEntry::make('amount')
                     ->numeric(),
                 TextEntry::make('notes')

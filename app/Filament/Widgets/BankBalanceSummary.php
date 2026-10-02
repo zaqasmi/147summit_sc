@@ -16,7 +16,7 @@ class BankBalanceSummary extends StatsOverviewWidget
 
     protected ?string $pollingInterval = '60s';
 
-    protected ?string $heading = 'Bank account';
+    protected ?string $heading = 'Bank accounts';
 
     public static function canView(): bool
     {
@@ -36,10 +36,16 @@ class BankBalanceSummary extends StatsOverviewWidget
         );
 
         return [
+            Stat::make('RF Account', $this->money($summary['account_balances']['rf_account']))
+                ->description($label)
+                ->color($summary['account_balances']['rf_account'] >= 0 ? 'success' : 'danger'),
+            Stat::make('Saving Account', $this->money($summary['account_balances']['saving_account']))
+                ->description($label)
+                ->color($summary['account_balances']['saving_account'] >= 0 ? 'success' : 'danger'),
             Stat::make('Cash in bank', $this->money($summary['cash_in_bank']))
                 ->description($label)
                 ->color($summary['cash_in_bank'] >= 0 ? 'success' : 'danger'),
-            Stat::make('Cash pending bank', $this->money($summary['collection_cash_pending_deposit']))
+            Stat::make('Cash to be deposited in bank', $this->money($summary['collection_cash_pending_deposit']))
                 ->description('After cash payments and construction recovery')
                 ->color($summary['collection_cash_pending_deposit'] > 0 ? 'warning' : 'success'),
             Stat::make('Cash staff paid', $this->money($summary['cash_staff_payments_pending_deduction']))

@@ -14,10 +14,11 @@ trait SavesCommissionPayments
     {
         return DB::transaction(function () use ($data): Model {
             $payments = $data['commission_paid_overrides'] ?? [];
-            unset($data['commission_paid_overrides']);
+            $sources = $data['commission_payment_sources'] ?? [];
+            unset($data['commission_paid_overrides'], $data['commission_payment_sources']);
             $data['month'] = Carbon::parse($data['month'])->startOfMonth()->toDateString();
             $record = parent::handleRecordCreation($data);
-            $this->saveCommissionPayments($record, $payments);
+            $this->saveCommissionPayments($record, $payments, $sources);
 
             return $record;
         });
@@ -27,16 +28,17 @@ trait SavesCommissionPayments
     {
         return DB::transaction(function () use ($record, $data): Model {
             $payments = $data['commission_paid_overrides'] ?? [];
-            unset($data['commission_paid_overrides']);
+            $sources = $data['commission_payment_sources'] ?? [];
+            unset($data['commission_paid_overrides'], $data['commission_payment_sources']);
             $data['month'] = Carbon::parse($data['month'])->startOfMonth()->toDateString();
             $record = parent::handleRecordUpdate($record, $data);
-            $this->saveCommissionPayments($record, $payments);
+            $this->saveCommissionPayments($record, $payments, $sources);
 
             return $record;
         });
     }
 
-    private function saveCommissionPayments(Model $record, array $payments): void
+    private function saveCommissionPayments(Model $record, array $payments, array $sources): void
     {
         $service = app(ReportService::class);
         foreach (Staff::query()->active()->commissioned()->get() as $staff) {
@@ -44,6 +46,7 @@ trait SavesCommissionPayments
                 $staff,
                 $record->month,
                 paidAmount: isset($payments[$staff->id]) ? round((float) $payments[$staff->id], 2) : null,
+                paidFrom: $sources[$staff->id] ?? null,
             );
         }
     }

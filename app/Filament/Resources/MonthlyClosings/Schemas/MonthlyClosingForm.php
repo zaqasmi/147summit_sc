@@ -5,6 +5,7 @@ namespace App\Filament\Resources\MonthlyClosings\Schemas;
 use App\Models\MonthlyClosing;
 use App\Models\MonthlyCommission;
 use App\Models\Staff;
+use App\Models\StaffTransaction;
 use App\Services\ReportService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -39,6 +40,7 @@ class MonthlyClosingForm
                             ->live()
                             ->afterStateUpdated(function (Set $set, mixed $state): void {
                                 $set('commission_paid_overrides', self::paymentDefaults($state ?: today()));
+                                $set('commission_payment_sources', self::paymentSourceDefaults($state ?: today()));
                             })
                             ->required(),
                         Select::make('status')
@@ -101,7 +103,7 @@ class MonthlyClosingForm
                     ->description('Enter the total paid through this closing for each staff member. Advances and payouts already recorded are deducted separately. Overpayments carry forward as an advance; unpaid balances carry forward as dues.')
                     ->icon('heroicon-o-banknotes')
                     ->schema(fn (Get $get): array => Staff::query()->active()->commissioned()->orderBy('name')->get()
-                        ->map(fn (Staff $staff): TextInput => TextInput::make('commission_paid_overrides.'.$staff->id)
+                        ->flatMap(fn (Staff $staff): array => [TextInput::make('commission_paid_overrides.'.$staff->id)
                             ->label($staff->name.' — paid at monthly closing')
                             ->prefix('Rs')
                             ->numeric()
@@ -130,7 +132,18 @@ class MonthlyClosingForm
                                     .' | Other payouts '.self::money($row['payout_paid'])
                                     .' | Remaining due '.self::money(max(0, $row['remaining_balance']))
                                     .' | Advance carried forward '.self::money(max(0, -$row['remaining_balance']));
-                            }))
+                            }),
+                            Select::make('commission_payment_sources.'.$staff->id)
+                                ->label($staff->name.' — paid from')
+                                ->options(StaffTransaction::paidFromOptions())
+                                ->required()
+                                ->live()
+                                ->afterStateHydrated(function (Select $component, mixed $state, Get $get) use ($staff): void {
+                                    if ($state === null) {
+                                        $component->state(self::paymentSourceDefaults($get('month') ?: today())[$staff->id] ?? 'cash');
+                                    }
+                                }),
+                        ])
                         ->all()),
                 Section::make('Printable Closing Report')
                     ->icon('heroicon-o-chart-bar')
@@ -179,6 +192,17 @@ class MonthlyClosingForm
 
         return Staff::query()->active()->commissioned()->get()
             ->mapWithKeys(fn (Staff $staff): array => [$staff->id => (float) ($paid[$staff->id] ?? 0)])
+            ->all();
+    }
+
+    public static function paymentSourceDefaults(Carbon|string $month): array
+    {
+        $sources = MonthlyCommission::query()
+            ->whereDate('month', Carbon::parse($month)->startOfMonth()->toDateString())
+            ->pluck('paid_from', 'staff_id');
+
+        return Staff::query()->active()->commissioned()->get()
+            ->mapWithKeys(fn (Staff $staff): array => [$staff->id => $sources[$staff->id] ?? 'cash'])
             ->all();
     }
 

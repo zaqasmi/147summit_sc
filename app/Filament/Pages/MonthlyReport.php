@@ -2,9 +2,11 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\MonthlyClosings\Schemas\MonthlyClosingForm;
 use App\Models\MonthlyClosing;
 use App\Models\MonthlyCommission;
 use App\Models\Staff;
+use App\Models\StaffTransaction;
 use App\Services\ReportService;
 use BackedEnum;
 use Filament\Notifications\Notification;
@@ -12,6 +14,7 @@ use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use UnitEnum;
 
 class MonthlyReport extends Page
@@ -50,6 +53,8 @@ class MonthlyReport extends Page
      * @var array<int|string, float|int|string|null>
      */
     public array $staffCommissionPayments = [];
+
+    public array $staffCommissionPaymentSources = [];
 
     public bool $editingClosedMonth = false;
 
@@ -282,6 +287,8 @@ class MonthlyReport extends Page
 
     private function persistMonthlyClosing(string $status): MonthlyClosing
     {
+        $this->validate(['rentPaidFrom' => ['required', Rule::in(array_keys(MonthlyClosing::paidFromOptions()))]]);
+
         return DB::transaction(fn (): MonthlyClosing => $this->persistMonthlyClosingWithPayments($status));
     }
 
@@ -349,10 +356,14 @@ class MonthlyReport extends Page
                 $staff->id => (float) ($paidByStaff[$staff->id] ?? 0),
             ])
             ->all();
+        $this->staffCommissionPaymentSources = MonthlyClosingForm::paymentSourceDefaults($month);
     }
 
     private function persistStaffCommissionPayments(Carbon $month): void
     {
+        $this->validate([
+            'staffCommissionPaymentSources.*' => ['required', Rule::in(array_keys(StaffTransaction::paidFromOptions()))],
+        ]);
         $paidByStaff = $this->commissionPaidOverrides();
         $reportService = app(ReportService::class);
 
@@ -366,6 +377,7 @@ class MonthlyReport extends Page
                     $staff,
                     $month,
                     paidAmount: $paidByStaff[$staff->id] ?? 0.0,
+                    paidFrom: $this->staffCommissionPaymentSources[$staff->id] ?? 'cash',
                 );
             });
     }

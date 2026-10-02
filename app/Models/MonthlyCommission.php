@@ -22,6 +22,8 @@ class MonthlyCommission extends Model
         'carried_forward_from_previous',
         'advances_deducted',
         'paid_amount',
+        'paid_from',
+        'paid_on',
         'balance_due',
         'generated_at',
         'notes',
@@ -31,6 +33,7 @@ class MonthlyCommission extends Model
     {
         return [
             'month' => 'date',
+            'paid_on' => 'date',
             'period_end' => 'date',
             'cash_collected' => 'decimal:2',
             'expense_total' => 'decimal:2',
@@ -48,6 +51,24 @@ class MonthlyCommission extends Model
     public function staff(): BelongsTo
     {
         return $this->belongsTo(Staff::class);
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (MonthlyCommission $commission): void {
+            if ((float) $commission->paid_amount <= 0) {
+                $commission->paid_on = null;
+            } elseif ($commission->paid_from && ! $commission->paid_on) {
+                $commission->paid_on = today();
+            }
+        });
+        static::saved(fn (MonthlyCommission $commission) => BankTransaction::syncFromMonthlyCommission($commission));
+        static::deleted(fn (MonthlyCommission $commission) => BankTransaction::deleteForSource(BankTransaction::SOURCE_MONTHLY_COMMISSION, $commission->id));
+    }
+
+    public function getPaidFromLabelAttribute(): string
+    {
+        return StaffTransaction::paidFromOptions()[$this->paid_from] ?? 'Not recorded';
     }
 
     public function getTotalPayableAttribute(): float

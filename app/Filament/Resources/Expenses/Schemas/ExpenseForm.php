@@ -19,6 +19,7 @@ class ExpenseForm
         return $schema
             ->components([
                 Section::make('Expense Details')
+                    ->description('Use this for expenses paid from collection cash, RF Account, or Saving Account. Expense items entered in daily closing are already deducted from that collection.')
                     ->icon('heroicon-o-receipt-refund')
                     ->columns([
                         'default' => 1,
@@ -69,10 +70,7 @@ class ExpenseForm
                             ->inputMode('decimal'),
                         Select::make('paid_from')
                             ->label('Paid from')
-                            ->options([
-                                'cash' => 'Cash from collection',
-                                'bank' => 'Bank',
-                            ])
+                            ->options(Expense::paidFromOptions())
                             ->required()
                             ->default('cash'),
                         Textarea::make('notes')

@@ -10,6 +10,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class BankTransactionsTable
@@ -20,6 +21,7 @@ class BankTransactionsTable
             ->striped()
             ->defaultSort('transaction_date', 'desc')
             ->columns([
+                TextColumn::make('bank_account_label')->label('Bank account')->badge(),
                 TextColumn::make('transaction_date')
                     ->date()
                     ->summarize(TableSummaries::recordCount())
@@ -68,7 +70,7 @@ class BankTransactionsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('bank_account')->label('Bank account')->options(BankTransaction::accountOptions()),
             ])
             ->recordActions([
                 ViewAction::make(),

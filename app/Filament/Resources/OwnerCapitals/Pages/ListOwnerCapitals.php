@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\OwnerCapitals\Pages;
 
+use App\Filament\Concerns\ShowsCashBankBalances;
 use App\Filament\Resources\OwnerCapitals\OwnerCapitalResource;
 use App\Models\OwnerCapital;
 use Filament\Actions\Action;
@@ -13,6 +14,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListOwnerCapitals extends ListRecords
 {
+    use ShowsCashBankBalances;
+
     protected static string $resource = OwnerCapitalResource::class;
 
     protected function getHeaderActions(): array

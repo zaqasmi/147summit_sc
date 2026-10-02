@@ -6,10 +6,12 @@ use App\Filament\Resources\MonthlyClosings\MonthlyClosingResource;
 use App\Filament\Resources\MonthlyClosings\Schemas\MonthlyClosingForm;
 use App\Models\MonthlyClosing;
 use App\Models\Staff;
+use App\Models\StaffTransaction;
 use App\Services\ReportService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Utilities\Get;
@@ -46,11 +48,13 @@ class EditMonthlyClosing extends EditRecord
                                 $staff,
                                 $month,
                                 paidAmount: max(0, round((float) ($data['staff_'.$staff->id] ?? 0), 2)),
+                                paidFrom: $data['source_'.$staff->id] ?? null,
                             );
                         }));
 
                     $this->refreshFormData(['commission_paid_overrides']);
                     $this->data['commission_paid_overrides'] = MonthlyClosingForm::paymentDefaults($month);
+                    $this->data['commission_payment_sources'] = MonthlyClosingForm::paymentSourceDefaults($month);
                 })
                 ->successNotificationTitle('Commission payments updated'),
             ViewAction::make(),
@@ -59,16 +63,16 @@ class EditMonthlyClosing extends EditRecord
     }
 
     /**
-     * @return array<int, TextInput>
+     * @return array<int, TextInput|Select>
      */
     private function commissionPaymentForm(MonthlyClosing $record): array
     {
         return collect(app(ReportService::class)->monthly($record->month)['staff_shares'])
-            ->map(function (array $row): TextInput {
+            ->flatMap(function (array $row): array {
                 $staff = $row['staff'];
                 $alreadyPaid = (float) $row['advance_paid'] + (float) $row['payout_paid'];
 
-                return TextInput::make('staff_'.$staff->id)
+                return [TextInput::make('staff_'.$staff->id)
                     ->label($staff->name.' — total paid at monthly closing')
                     ->prefix('Rs')
                     ->numeric()
@@ -82,7 +86,12 @@ class EditMonthlyClosing extends EditRecord
                         .' | Other payouts '.$this->money($row['payout_paid'])
                         .' | Remaining due '.$this->money(max(0, (float) $row['total_payable'] - $alreadyPaid - (float) $get('staff_'.$staff->id)))
                         .' | Advance carried forward '.$this->money(max(0, $alreadyPaid + (float) $get('staff_'.$staff->id) - (float) $row['total_payable']))
-                    );
+                    ),
+                    Select::make('source_'.$staff->id)
+                        ->label($staff->name.' — paid from')
+                        ->options(StaffTransaction::paidFromOptions())
+                        ->required(),
+                ];
             })
             ->all();
     }
@@ -95,6 +104,7 @@ class EditMonthlyClosing extends EditRecord
         return collect(app(ReportService::class)->monthly($record->month)['staff_shares'])
             ->mapWithKeys(fn (array $row): array => [
                 'staff_'.$row['staff']->id => (float) $row['paid_amount'],
+                'source_'.$row['staff']->id => $row['paid_from'] ?? 'cash',
             ])
             ->all();
     }

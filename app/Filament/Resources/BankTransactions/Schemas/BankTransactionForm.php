@@ -26,6 +26,11 @@ class BankTransactionForm
                         'xl' => 3,
                     ])
                     ->schema([
+                        Select::make('bank_account')
+                            ->label('Bank account')
+                            ->options(BankTransaction::accountOptions())
+                            ->default('rf_account')
+                            ->required(),
                         DatePicker::make('transaction_date')
                             ->default(today())
                             ->required(),
@@ -75,7 +80,13 @@ class BankTransactionForm
                             ->required()
                             ->numeric()
                             ->inputMode('decimal')
-                            ->minValue(0.01),
+                            ->minValue(0.01)
+                            ->maxValue(fn (Get $get, ?BankTransaction $record): ?float => $get('type') === 'daily_collection_deposit'
+                                ? BankTransaction::availableCashForDeposit($get('transaction_date'), $record)
+                                : null)
+                            ->helperText(fn (Get $get, ?BankTransaction $record): ?string => $get('type') === 'daily_collection_deposit'
+                                ? 'Available for this deposit: Rs '.number_format(BankTransaction::availableCashForDeposit($get('transaction_date'), $record), 2)
+                                : null),
                         TextInput::make('deposit_slip_number')
                             ->label('Deposit slip number')
                             ->maxLength(100)

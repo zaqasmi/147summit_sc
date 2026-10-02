@@ -4,10 +4,12 @@ namespace App\Filament\Resources\Payments\Schemas;
 
 use App\Models\GameParticipant;
 use App\Models\GameSession;
+use App\Models\Payment;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,12 +21,13 @@ class PaymentForm
         return $schema
             ->components([
                 Section::make('Payment')
+                    ->description('Game payments are collected manually in cash. Record deposits into RF Account or Saving Account under Bank Transactions.')
                     ->columns(3)
                     ->schema([
                         Select::make('game_participant_id')
                             ->label('Player charge')
                             ->relationship('participant', 'id', modifyQueryUsing: fn (Builder $query): Builder => $query->with(['player', 'gameSession.snookerTable'])->latest('updated_at'))
-                            ->getOptionLabelFromRecordUsing(fn (GameParticipant $record): string => "#{$record->id} - {$record->player_label} - {$record->gameSession?->snookerTable?->name} - Balance Rs " . number_format($record->outstanding_amount, 2))
+                            ->getOptionLabelFromRecordUsing(fn (GameParticipant $record): string => "#{$record->id} - {$record->player_label} - {$record->gameSession?->snookerTable?->name} - Balance Rs ".number_format($record->outstanding_amount, 2))
                             ->searchable()
                             ->preload(),
                         Select::make('game_session_id')
@@ -45,12 +48,8 @@ class PaymentForm
                         DatePicker::make('payment_date')
                             ->default(today())
                             ->required(),
-                        Select::make('payment_method')
-                            ->options([
-                                'cash' => 'Cash',
-                                'bank' => 'Bank',
-                                'other' => 'Other',
-                            ])
+                        Hidden::make('payment_method')
+                            ->in(fn (?Payment $record): array => [$record?->payment_method ?? 'cash'])
                             ->required()
                             ->default('cash'),
                         TextInput::make('amount')

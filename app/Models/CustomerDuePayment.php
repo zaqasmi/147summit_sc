@@ -14,10 +14,18 @@ class CustomerDuePayment extends Model
         'customer_due_id',
         'cash_deposit_id',
         'payment_date',
+        'payment_method',
         'amount',
         'discount_amount',
         'notes',
     ];
+
+    protected $attributes = ['payment_method' => 'cash'];
+
+    public function getPaymentMethodLabelAttribute(): string
+    {
+        return Payment::methodOptions()[$this->payment_method] ?? ucfirst((string) $this->payment_method);
+    }
 
     protected function casts(): array
     {
@@ -31,10 +39,12 @@ class CustomerDuePayment extends Model
     protected static function booted(): void
     {
         static::saved(function (CustomerDuePayment $payment): void {
+            BankTransaction::syncFromReceipt($payment);
             $payment->customerDue?->refreshBalance();
         });
 
         static::deleted(function (CustomerDuePayment $payment): void {
+            BankTransaction::deleteForSource(BankTransaction::SOURCE_CUSTOMER_DUE_PAYMENT, $payment->id);
             $payment->customerDue?->refreshBalance();
         });
     }

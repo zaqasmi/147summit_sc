@@ -42,6 +42,7 @@ use Database\Seeders\SingleBankAccountSetupSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class GameBillingTest extends TestCase
@@ -757,7 +758,8 @@ class GameBillingTest extends TestCase
     {
         $this->assertSame([
             'cash' => 'Cash from collection',
-            'bank' => 'Bank',
+            'bank' => 'RF Account',
+            'saving_account' => 'Saving Account',
             'owner' => 'Owner / other source',
         ], CapitalLiabilityPayment::paidFromOptions());
 
@@ -977,7 +979,8 @@ class GameBillingTest extends TestCase
 
         $this->assertSame([
             'cash' => 'Cash from collection',
-            'bank' => 'Bank',
+            'bank' => 'RF Account',
+            'saving_account' => 'Saving Account',
         ], StaffTransaction::paidFromOptions());
 
         $transaction->update(['paid_from' => 'bank']);
@@ -990,7 +993,7 @@ class GameBillingTest extends TestCase
         $this->assertSame(250.0, $digitalSummary['staff_payments']);
         $this->assertSame(750.0, $digitalSummary['cash_in_bank']);
         $this->assertSame('staff_payment', $bankTransaction->type);
-        $this->assertSame('Paid from Bank', $bankTransaction->notes);
+        $this->assertSame('Paid from RF Account', $bankTransaction->notes);
     }
 
     public function test_pending_cash_adjustments_reconcile_cash_to_be_deposited_without_bank_effect(): void
@@ -1621,7 +1624,7 @@ class GameBillingTest extends TestCase
                 ->assertSee('Total advance paid in the month')
                 ->assertSee('Total to be paid')
                 ->assertSee('Commission staff')
-                ->assertSee('Closing payment')
+                ->assertSee('Total paid at closing')
                 ->assertSee('D+')
                 ->assertSee('D rec')
                 ->assertSeeInOrder([
@@ -1728,7 +1731,7 @@ class GameBillingTest extends TestCase
 
             $this->actingAs($admin);
 
-            \Livewire\Livewire::test(MonthlyReport::class)
+            Livewire::test(MonthlyReport::class)
                 ->assertSet('editingClosedMonth', false)
                 ->call('editClosedMonth')
                 ->assertSet('editingClosedMonth', true)

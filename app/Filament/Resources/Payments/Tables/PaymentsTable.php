@@ -33,8 +33,7 @@ class PaymentsTable
                     ->date()
                     ->summarize(TableSummaries::recordCount())
                     ->sortable(),
-                TextColumn::make('payment_method')
-                    ->searchable(),
+                TextColumn::make('payment_method_label')->label('Received in')->badge(),
                 TextColumn::make('amount')
                     ->formatStateUsing(fn ($state): string => 'Rs '.number_format((float) $state, 2))
                     ->summarize(TableSummaries::moneyTotal())

@@ -108,11 +108,19 @@ class ReportService
 
         $cashCollected = (float) Payment::query()
             ->whereDate('payment_date', $day)
+            ->whereNotIn('payment_method', ['bank', 'saving_account'])
             ->sum('amount');
+        $bankGameReceipts = $usesManualClosing ? 0.0 : (float) Payment::query()
+            ->whereIn('game_session_id', $checkedOutSessionIds)
+            ->whereDate('payment_date', $day)->whereIn('payment_method', ['bank', 'saving_account'])->sum('amount');
+        $bankDueReceipts = (float) CustomerDuePayment::query()
+            ->whereIn('cash_deposit_id', $deposits->pluck('id'))
+            ->whereDate('payment_date', $day)->whereIn('payment_method', ['bank', 'saving_account'])->sum('amount');
+        $bankReceipts = $bankGameReceipts + $bankDueReceipts;
 
         $dayExpenseRows = Expense::query()
             ->whereDate('expense_date', $day)
-            ->get(['expense_date', 'category', 'description', 'amount', 'cash_deposit_id']);
+            ->get(['expense_date', 'category', 'description', 'amount', 'cash_deposit_id', 'paid_from']);
         $expenseRowsTotal = (float) $dayExpenseRows->sum('amount');
         $rentExpenseTotal = (float) $dayExpenseRows
             ->filter(fn (Expense $expense): bool => $this->isRentExpense($expense))
@@ -121,18 +129,24 @@ class ReportService
             ? (float) $manualDeposits->sum('manual_expense_total')
             : max(0, $expenseRowsTotal - $rentExpenseTotal);
         $dailyExpenseTotal = $expenseTotal;
+        $bankExpensesIncludedInTotal = (float) $dayExpenseRows
+            ->filter(fn (Expense $expense): bool => BankTransaction::isBankPaymentSource($expense->paid_from)
+                && ! $expense->isRent()
+                && (! $usesManualClosing || $manualDeposits->contains('id', $expense->cash_deposit_id)))
+            ->sum('amount');
+        $cashExpenseTotal = max(0, $expenseTotal - $bankExpensesIncludedInTotal);
 
         $amountCollectedFromStaff = (float) $deposits->sum('amount_collected_from_staff');
         $closingCashAfterExpenseAndDue = $usesExplicitClosing
-            ? max(0, $salesTotal - $expenseTotal)
+            ? max(0, $salesTotal - $bankReceipts - $cashExpenseTotal)
             : 0.0;
 
         if ($usesManualClosing || $deposits->isNotEmpty()) {
             $cashCollected = $usesExplicitClosing
                 ? max(0, $amountCollectedFromStaff)
-                : max(0, $salesTotal);
+                : max(0, $salesTotal - $bankReceipts);
         } elseif ($duesRecovered > 0) {
-            $cashCollected += $duesRecovered;
+            $cashCollected += max(0, $duesRecovered - $bankDueReceipts);
         }
 
         $addOnTotal = $usesManualClosing
@@ -150,7 +164,7 @@ class ReportService
             ->sum('amount');
         $capitalInstallmentsPaidFromBusiness = (float) CapitalLiabilityPayment::query()
             ->whereDate('payment_date', $day)
-            ->whereIn('paid_from', ['cash', 'petty_cash', 'bank'])
+            ->whereIn('paid_from', ['cash', 'petty_cash', 'bank', 'saving_account'])
             ->sum('amount');
         $capitalInstallmentsPaidFromCounter = (float) CapitalLiabilityPayment::query()
             ->whereDate('payment_date', $day)
@@ -163,7 +177,7 @@ class ReportService
                 ->latest('deposit_date')
                 ->value('petty_cash_kept'));
 
-        $expenseDeductedFromCounterCash = $usesExplicitClosing ? 0.0 : $expenseTotal;
+        $expenseDeductedFromCounterCash = $usesExplicitClosing ? 0.0 : $cashExpenseTotal;
         $counterCashForExpected = $usesExplicitClosing ? $closingCashAfterExpenseAndDue : $cashCollected;
         $counterCashExpected = $openingPettyCash + $counterCashForExpected - $expenseDeductedFromCounterCash - $capitalInstallmentsPaidFromCounter;
         $counterCashCollected = (float) $deposits->sum('cash_collected_from_counter');
@@ -488,7 +502,7 @@ class ReportService
             ->map(fn (Staff $staff): MonthlyCommission => $this->generateMonthlyCommission($staff, $start, asOf: $periodEnd));
     }
 
-    public function generateMonthlyCommission(Staff $staff, Carbon|string $month, ?float $paidAmount = null, Carbon|string|null $asOf = null): MonthlyCommission
+    public function generateMonthlyCommission(Staff $staff, Carbon|string $month, ?float $paidAmount = null, Carbon|string|null $asOf = null, ?string $paidFrom = null): MonthlyCommission
     {
         $start = Carbon::parse($month)->startOfMonth();
         $periodEnd = $this->commissionGenerationPeriodEnd($start, $asOf);
@@ -534,6 +548,7 @@ class ReportService
             'carried_forward_from_previous' => round($previousBalance, 2),
             'advances_deducted' => round($ledgerPaidAmount, 2),
             'paid_amount' => round($manualPaidAmount, 2),
+            'paid_from' => $paidFrom ?? $existingCommission?->paid_from,
             'balance_due' => round($balanceDue, 2),
             'generated_at' => now(),
         ]);
@@ -1830,6 +1845,7 @@ class ReportService
                     'advance_paid' => round($advancePaid, 2),
                     'payout_paid' => round($payoutPaid, 2),
                     'paid_amount' => round($paidAmount, 2),
+                    'paid_from' => $existingCommission?->paid_from,
                     'total_paid' => $roundedTotalPaid,
                     'already_paid_this_month' => $roundedTotalPaid,
                     'monthly_remaining' => $roundedMonthlyRemaining,

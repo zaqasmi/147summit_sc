@@ -45,18 +45,14 @@ class CapitalLiabilityPayment extends Model
      */
     public static function paidFromOptions(): array
     {
-        return [
-            'cash' => 'Cash from collection',
-            'bank' => 'Bank',
-            'owner' => 'Owner / other source',
-        ];
+        return [...BankTransaction::paymentSourceOptions(), 'owner' => 'Owner / other source'];
     }
 
     public static function paidFromColor(?string $source): string
     {
         return match ($source) {
             'cash' => 'warning',
-            'bank' => 'success',
+            'bank', 'saving_account' => 'success',
             'owner' => 'info',
             default => 'gray',
         };
