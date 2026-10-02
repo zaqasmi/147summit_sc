@@ -1620,6 +1620,8 @@ class GameBillingTest extends TestCase
                 ->assertSee('Total dues remaining in the month')
                 ->assertSee('Total advance paid in the month')
                 ->assertSee('Total to be paid')
+                ->assertSee('Commission staff')
+                ->assertSee('Closing payment')
                 ->assertSee('D+')
                 ->assertSee('D rec')
                 ->assertSeeInOrder([
@@ -1645,6 +1647,109 @@ class GameBillingTest extends TestCase
                 ->assertSee('Remaining commission')
                 ->assertDontSee('Owner profit')
                 ->assertDontSee('Rs 600.00');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_monthly_closing_updates_commission_staff_payment_for_closed_month(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-21 12:00:00'));
+
+        try {
+            $admin = User::create([
+                'name' => 'Admin',
+                'email' => 'monthly-closing-payment-admin@example.test',
+                'role' => 'admin',
+                'password' => 'password',
+            ]);
+
+            foreach ([1, 2, 3, 4] as $number) {
+                SnookerTable::create([
+                    'number' => $number,
+                    'name' => 'Table '.$number,
+                    'hourly_rate' => 10,
+                ]);
+            }
+
+            $staff = Staff::create([
+                'name' => 'Sale Manager',
+                'commission_rate' => 25,
+            ]);
+
+            CashDeposit::create([
+                'deposit_date' => '2026-08-01',
+                'staff_id' => $staff->id,
+                'closing_source' => 'manual',
+                'manual_table_1_sale' => 1000,
+                'manual_expense_total' => 200,
+                'cash_collected_from_counter' => 800,
+                'amount_collected_from_staff' => 800,
+            ]);
+
+            StaffTransaction::create([
+                'staff_id' => $staff->id,
+                'transaction_date' => '2026-08-05',
+                'commission_month' => '2026-08-01',
+                'type' => 'advance',
+                'paid_from' => 'cash',
+                'amount' => 50,
+            ]);
+
+            $closedAt = Carbon::parse('2026-08-31 10:00:00');
+            MonthlyClosing::create([
+                'month' => '2026-08-01',
+                'status' => MonthlyClosing::STATUS_CLOSED,
+                'rent_total' => 0,
+                'rent_paid_amount' => 0,
+                'rent_paid_from' => 'bank',
+                'construction_deduction_amount' => 0,
+                'construction_received_amount' => 0,
+                'construction_account_name' => 'Construction deduction account',
+                'liabilities_verified' => true,
+                'closed_at' => $closedAt,
+                'closed_by' => $admin->id,
+            ]);
+
+            $preview = [
+                ...MonthlyClosing::defaultsForMonth('2026-08-01'),
+                'month' => '2026-08-01',
+                'rent_total' => 0,
+                'rent_paid_amount' => 0,
+                'construction_deduction_amount' => 0,
+                'commission_paid_overrides' => [$staff->id => 75],
+            ];
+            $previewReport = app(ReportService::class)->monthly('2026-08', $preview);
+
+            $this->assertSame(200.0, $previewReport['staff_commission_totals']['monthly_commission_to_be_paid']);
+            $this->assertSame(50.0, $previewReport['staff_commission_totals']['advance_paid']);
+            $this->assertSame(75.0, $previewReport['staff_commission_totals']['generated_paid']);
+            $this->assertSame(75.0, $previewReport['staff_commission_totals']['monthly_remaining']);
+
+            $this->actingAs($admin);
+
+            \Livewire\Livewire::test(MonthlyReport::class)
+                ->assertSet('editingClosedMonth', false)
+                ->call('editClosedMonth')
+                ->assertSet('editingClosedMonth', true)
+                ->set("staffCommissionPayments.{$staff->id}", 75)
+                ->call('saveClosedMonthChanges')
+                ->assertSet('editingClosedMonth', false);
+
+            $commission = MonthlyCommission::query()
+                ->where('staff_id', $staff->id)
+                ->whereDate('month', '2026-08-01')
+                ->firstOrFail();
+
+            $this->assertSame(200.0, (float) $commission->commission_amount);
+            $this->assertSame(50.0, (float) $commission->advances_deducted);
+            $this->assertSame(75.0, (float) $commission->paid_amount);
+            $this->assertSame(75.0, (float) $commission->balance_due);
+
+            $closing = MonthlyClosing::forMonth('2026-08-01');
+
+            $this->assertSame(MonthlyClosing::STATUS_CLOSED, $closing?->status);
+            $this->assertTrue($closedAt->equalTo($closing?->closed_at));
         } finally {
             Carbon::setTestNow();
         }
@@ -1707,6 +1812,7 @@ class GameBillingTest extends TestCase
             ->actingAs($admin)
             ->get(route('filament.admin.resources.monthly-closings.edit', ['record' => $closing]))
             ->assertOk()
+            ->assertSee('Commission payments')
             ->assertSee('Printable monthly closing report')
             ->assertSee('Print closing report')
             ->assertSee('Report snapshot')

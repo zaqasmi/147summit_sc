@@ -3,6 +3,9 @@
 namespace App\Filament\Resources\MonthlyClosings\Schemas;
 
 use App\Models\MonthlyClosing;
+use App\Models\MonthlyCommission;
+use App\Models\Staff;
+use App\Services\ReportService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -11,6 +14,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
@@ -33,6 +37,9 @@ class MonthlyClosingForm
                             ->label('Month')
                             ->default(today()->startOfMonth())
                             ->live()
+                            ->afterStateUpdated(function (Set $set, mixed $state): void {
+                                $set('commission_paid_overrides', self::paymentDefaults($state ?: today()));
+                            })
                             ->required(),
                         Select::make('status')
                             ->options(MonthlyClosing::statusOptions())
@@ -90,6 +97,41 @@ class MonthlyClosingForm
                             ->live(onBlur: true)
                             ->columnSpanFull(),
                     ]),
+                Section::make('Commission staff payments')
+                    ->description('Enter the total paid through this closing for each staff member. Advances and payouts already recorded are deducted separately. Overpayments carry forward as an advance; unpaid balances carry forward as dues.')
+                    ->icon('heroicon-o-banknotes')
+                    ->schema(fn (Get $get): array => Staff::query()->active()->commissioned()->orderBy('name')->get()
+                        ->map(fn (Staff $staff): TextInput => TextInput::make('commission_paid_overrides.'.$staff->id)
+                            ->label($staff->name.' — paid at monthly closing')
+                            ->prefix('Rs')
+                            ->numeric()
+                            ->minValue(0)
+                            ->required()
+                            ->live(onBlur: true)
+                            ->afterStateHydrated(function (TextInput $component, mixed $state, Get $get) use ($staff): void {
+                                if ($state === null) {
+                                    $component->state(self::paymentDefaults($get('month') ?: today())[$staff->id] ?? 0);
+                                }
+                            })
+                            ->helperText(function (Get $get) use ($staff): string {
+                                $month = $get('month') ?: today();
+                                $report = app(ReportService::class)->monthly($month, [
+                                    'month' => Carbon::parse($month)->startOfMonth()->toDateString(),
+                                    'rent_total' => (float) $get('rent_total'),
+                                    'rent_paid_amount' => (float) $get('rent_paid_amount'),
+                                    'construction_deduction_amount' => (float) $get('construction_deduction_amount'),
+                                    'commission_paid_overrides' => $get('commission_paid_overrides') ?? [],
+                                ]);
+                                $row = collect($report['staff_shares'])->first(fn (array $row): bool => $row['staff']->is($staff));
+
+                                return 'Previous balance '.self::money($row['previous_balance'])
+                                    .' | Monthly commission '.self::money($row['monthly_share'])
+                                    .' | Advance paid '.self::money($row['advance_paid'])
+                                    .' | Other payouts '.self::money($row['payout_paid'])
+                                    .' | Remaining due '.self::money(max(0, $row['remaining_balance']))
+                                    .' | Advance carried forward '.self::money(max(0, -$row['remaining_balance']));
+                            }))
+                        ->all()),
                 Section::make('Printable Closing Report')
                     ->icon('heroicon-o-chart-bar')
                     ->extraAttributes(['class' => 'summit-monthly-closing-snapshot-section'])
@@ -126,6 +168,18 @@ class MonthlyClosingForm
                             ->columnSpanFull(),
                     ]),
             ]);
+    }
+
+    public static function paymentDefaults(Carbon|string $month): array
+    {
+        $paid = MonthlyCommission::query()
+            ->whereDate('month', Carbon::parse($month)->startOfMonth()->toDateString())
+            ->pluck('paid_amount', 'staff_id')
+            ->all();
+
+        return Staff::query()->active()->commissioned()->get()
+            ->mapWithKeys(fn (Staff $staff): array => [$staff->id => (float) ($paid[$staff->id] ?? 0)])
+            ->all();
     }
 
     private static function monthPlaceholder(): Placeholder
@@ -218,6 +272,6 @@ class MonthlyClosingForm
 
     private static function money(mixed $value): string
     {
-        return 'Rs ' . number_format((float) ($value ?? 0), 2);
+        return 'Rs '.number_format((float) ($value ?? 0), 2);
     }
 }

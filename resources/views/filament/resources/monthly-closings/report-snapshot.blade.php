@@ -37,6 +37,7 @@
         'construction_balance' => round(max(0, $constructionDeduction - $constructionReceived), 2),
         'liabilities_verified' => (bool) $fieldValue('liabilities_verified', $defaults['liabilities_verified']),
         'notes' => $fieldValue('notes', $defaults['notes']),
+        'commission_paid_overrides' => $get('commission_paid_overrides') ?? [],
     ];
 
     $report = app(\App\Services\ReportService::class)->monthly($monthStart, $closingOverride);
@@ -72,6 +73,10 @@
         ['label' => 'Distribution base', 'basis' => 'Net profit after rent adjustment', 'value' => $money($report['commission_distribution_base'])],
         ['label' => 'Commission rate', 'basis' => 'Effective monthly staff rate', 'value' => $percent($report['overall_commission_rate']), 'numeric' => false],
         ['label' => 'Commission earned', 'basis' => 'Distribution base x commission rate', 'value' => $money($commission['monthly_commission_to_be_paid'])],
+        ['label' => 'Advance paid', 'basis' => 'Staff advances recorded for this month', 'value' => $money($commission['advance_paid'])],
+        ['label' => 'Paid at monthly closing', 'basis' => 'Payments entered in this closing', 'value' => $money($commission['generated_paid'])],
+        ['label' => 'Remaining staff dues', 'basis' => 'Unpaid balances including previous months', 'value' => $money(collect($report['staff_shares'])->sum(fn ($row) => max(0, $row['remaining_balance'])))],
+        ['label' => 'Advance carried forward', 'basis' => 'Overpaid balances available next month', 'value' => $money(collect($report['staff_shares'])->sum(fn ($row) => max(0, -$row['remaining_balance'])))],
         ['label' => 'Paid commission', 'basis' => 'Advances, payouts, and generated paid amounts', 'value' => $money($commission['already_paid_this_month'])],
         ['label' => 'Remaining commission', 'basis' => 'Commission earned less paid commission', 'value' => $money($commission['monthly_remaining'])],
         ['label' => 'Overall staff remaining', 'basis' => 'Previous balance + current month less paid', 'value' => $money($commission['remaining_balance'])],

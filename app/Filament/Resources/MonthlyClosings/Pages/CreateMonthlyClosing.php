@@ -7,5 +7,7 @@ use Filament\Resources\Pages\CreateRecord;
 
 class CreateMonthlyClosing extends CreateRecord
 {
+    use SavesCommissionPayments;
+
     protected static string $resource = MonthlyClosingResource::class;
 }

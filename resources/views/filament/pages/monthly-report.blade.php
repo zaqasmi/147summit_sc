@@ -6,6 +6,7 @@
         $monthClosed = $this->isMonthClosed();
         $canManageMonthlyClosing = $this->canManageMonthlyClosing();
         $canViewOwnerProfit = $this->canViewOwnerProfit();
+        $canEditMonthlyClosing = $canManageMonthlyClosing && (! $monthClosed || $this->editingClosedMonth);
         $tableNumbers = $report['table_numbers'] ?? [1, 2, 3, 4];
         $compactMoney = function (mixed $amount): string {
             $amount = (float) ($amount ?? 0);
@@ -110,12 +111,24 @@
                 </div>
 
                 @if ($canManageMonthlyClosing)
-                    <button type="button" wire:click="saveMonthlyClosingDraft" @disabled($monthClosed) class="summit-print-button summit-print-button-secondary">
-                        Save draft
-                    </button>
-                    <button type="button" wire:click="closeMonth" @disabled($monthClosed) class="summit-print-button">
-                        Close month
-                    </button>
+                    @if ($monthClosed)
+                        @if ($this->editingClosedMonth)
+                            <button type="button" wire:click="saveClosedMonthChanges" class="summit-print-button">
+                                Save closed month
+                            </button>
+                        @else
+                            <button type="button" wire:click="editClosedMonth" class="summit-print-button summit-print-button-secondary">
+                                Edit closed month
+                            </button>
+                        @endif
+                    @else
+                        <button type="button" wire:click="saveMonthlyClosingDraft" class="summit-print-button summit-print-button-secondary">
+                            Save draft
+                        </button>
+                        <button type="button" wire:click="closeMonth" class="summit-print-button">
+                            Close month
+                        </button>
+                    @endif
                 @endif
             </div>
         </div>
@@ -134,21 +147,21 @@
                         <tr>
                             <td class="px-4 py-3 font-semibold">Total rent</td>
                             <td class="px-4 py-3 summit-form-cell">
-                                <input type="number" min="0" step="0.01" wire:model.live="rentTotal" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input" />
+                                <input type="number" min="0" step="0.01" wire:model.live="rentTotal" @disabled(! $canEditMonthlyClosing) class="summit-date-input" />
                             </td>
                             <td class="px-4 py-3">Distribution expense</td>
                         </tr>
                         <tr>
                             <td class="px-4 py-3 font-semibold">Rent paid</td>
                             <td class="px-4 py-3 summit-form-cell">
-                                <input type="number" min="0" step="0.01" wire:model.live="rentPaidAmount" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input" />
+                                <input type="number" min="0" step="0.01" wire:model.live="rentPaidAmount" @disabled(! $canEditMonthlyClosing) class="summit-date-input" />
                             </td>
                             <td class="px-4 py-3">Bank outflow or pending cash deduction</td>
                         </tr>
                         <tr>
                             <td class="px-4 py-3 font-semibold">Paid from</td>
                             <td class="px-4 py-3 summit-form-cell">
-                                <select wire:model.live="rentPaidFrom" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input">
+                                <select wire:model.live="rentPaidFrom" @disabled(! $canEditMonthlyClosing) class="summit-date-input">
                                     <option value="bank">Bank</option>
                                     <option value="cash">Cash from collection</option>
                                 </select>
@@ -158,21 +171,21 @@
                         <tr>
                             <td class="px-4 py-3 font-semibold">Construction deduction</td>
                             <td class="px-4 py-3 summit-form-cell">
-                                <input type="number" min="0" step="0.01" wire:model.live="constructionDeductionAmount" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input" />
+                                <input type="number" min="0" step="0.01" wire:model.live="constructionDeductionAmount" @disabled(! $canEditMonthlyClosing) class="summit-date-input" />
                             </td>
                             <td class="px-4 py-3">Unpaid rent allocation</td>
                         </tr>
                         <tr>
                             <td class="px-4 py-3 font-semibold">Saved in other account</td>
                             <td class="px-4 py-3 summit-form-cell">
-                                <input type="number" min="0" step="0.01" wire:model.live="constructionReceivedAmount" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input" />
+                                <input type="number" min="0" step="0.01" wire:model.live="constructionReceivedAmount" @disabled(! $canEditMonthlyClosing) class="summit-date-input" />
                             </td>
                             <td class="px-4 py-3">Pending cash deduction</td>
                         </tr>
                         <tr>
                             <td class="px-4 py-3 font-semibold">Other account name</td>
                             <td class="px-4 py-3 summit-form-cell">
-                                <input type="text" wire:model.live="constructionAccountName" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input" />
+                                <input type="text" wire:model.live="constructionAccountName" @disabled(! $canEditMonthlyClosing) class="summit-date-input" />
                             </td>
                             <td class="px-4 py-3">{{ $closing['construction_account_name'] ?: 'Other account' }}</td>
                         </tr>
@@ -180,7 +193,7 @@
                             <td class="px-4 py-3 font-semibold">Liabilities verified</td>
                             <td class="px-4 py-3">
                                 <label class="summit-checkbox-line">
-                                    <input type="checkbox" wire:model.live="liabilitiesVerified" @disabled($monthClosed || ! $canManageMonthlyClosing) class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-500" />
+                                    <input type="checkbox" wire:model.live="liabilitiesVerified" @disabled(! $canEditMonthlyClosing) class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-500" />
                                     <span>{{ $closing['liabilities_verified'] ? 'Verified' : 'Pending' }}</span>
                                 </label>
                             </td>
@@ -189,11 +202,68 @@
                         <tr>
                             <td class="px-4 py-3 font-semibold">Closing notes</td>
                             <td class="px-4 py-3 summit-form-cell">
-                                <input type="text" wire:model.live="closingNotes" @disabled($monthClosed || ! $canManageMonthlyClosing) class="summit-date-input summit-notes-input" />
+                                <input type="text" wire:model.live="closingNotes" @disabled(! $canEditMonthlyClosing) class="summit-date-input summit-notes-input" />
                             </td>
                             <td class="px-4 py-3">{{ filled($closing['notes'] ?? null) ? $closing['notes'] : '-' }}</td>
                         </tr>
                     </tbody>
+                </table>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="summit-table summit-compact-table">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-3">Commission staff</th>
+                            <th class="px-4 py-3 summit-money">Previous balance</th>
+                            <th class="px-4 py-3 summit-money">Monthly commission</th>
+                            <th class="px-4 py-3 summit-money">Advance paid</th>
+                            <th class="px-4 py-3 summit-money">Other payouts</th>
+                            <th class="px-4 py-3 summit-money">Total paid at closing</th>
+                            <th class="px-4 py-3 summit-money">Remaining due</th>
+                            <th class="px-4 py-3 summit-money">Advance carried forward</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($report['staff_shares'] as $row)
+                            <tr>
+                                <td class="px-4 py-3 font-semibold">{{ $row['staff']->name }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['previous_balance']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['monthly_commission_to_be_paid']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['advance_paid']) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($row['payout_paid']) }}</td>
+                                <td class="px-4 py-3 summit-form-cell">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        aria-label="{{ $row['staff']->name }} total paid at closing"
+                                        wire:model.live="staffCommissionPayments.{{ $row['staff']->id }}"
+                                        @disabled(! $canEditMonthlyClosing)
+                                        class="summit-date-input"
+                                    />
+                                </td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money(max(0, $row['remaining_balance'])) }}</td>
+                                <td class="px-4 py-3 summit-money font-semibold">{{ $this->money(max(0, -$row['remaining_balance'])) }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td class="px-4 py-3" colspan="8">No active commission staff found.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td class="px-4 py-3 font-semibold">Overall total</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['previous_balance']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['monthly_commission_to_be_paid']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['advance_paid']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['payout_paid']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money($commission['generated_paid']) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money(collect($report['staff_shares'])->sum(fn ($row) => max(0, $row['remaining_balance']))) }}</td>
+                            <td class="px-4 py-3 summit-money font-semibold">{{ $this->money(collect($report['staff_shares'])->sum(fn ($row) => max(0, -$row['remaining_balance']))) }}</td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
 

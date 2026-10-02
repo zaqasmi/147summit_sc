@@ -387,7 +387,12 @@ class ReportService
         $depositsTotal = $this->collectionDepositedToBank($start, $end);
 
         $overallCommissionRate = $this->effectiveCommissionRate($netProfit, $commissionEstimate, $end);
-        $staffShares = $this->staffShares($start, $commissionEstimate, $overallCommissionRate);
+        $staffShares = $this->staffShares(
+            $start,
+            $commissionEstimate,
+            $overallCommissionRate,
+            $monthlyClosingOverride['commission_paid_overrides'] ?? [],
+        );
         $staffShareRows = collect($staffShares);
         $commissionEstimate = (float) $staffShareRows->sum('monthly_share');
         $staffAdvanceCarryIn = $this->staffAdvanceCarryIntoMonth($start);
@@ -534,6 +539,20 @@ class ReportService
         ]);
 
         $commission->save();
+
+        // An earlier month's payment can change dues or advance credit in later closings.
+        $carry = (float) $commission->balance_due;
+        MonthlyCommission::query()
+            ->where('staff_id', $staff->id)
+            ->whereDate('month', '>', $start->toDateString())
+            ->orderBy('month')
+            ->get()
+            ->each(function (MonthlyCommission $later) use (&$carry): void {
+                $later->carried_forward_from_previous = $carry;
+                $carry = round($carry + (float) $later->commission_amount - $later->total_paid, 2);
+                $later->balance_due = $carry;
+                $later->save();
+            });
 
         return $commission;
     }
@@ -1756,7 +1775,7 @@ class ReportService
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function staffShares(Carbon $start, float $commissionPool, float $overallCommissionRate): array
+    private function staffShares(Carbon $start, float $commissionPool, float $overallCommissionRate, array $paidOverrides = []): array
     {
         $staff = Staff::query()
             ->active()
@@ -1768,7 +1787,7 @@ class ReportService
         $commissionPool = max(0, $commissionPool);
 
         return $staff
-            ->map(function (Staff $staff) use ($start, $overallCommissionRate, $distributionWeightTotal, $staffCount, $commissionPool): array {
+            ->map(function (Staff $staff) use ($start, $overallCommissionRate, $distributionWeightTotal, $staffCount, $commissionPool, $paidOverrides): array {
                 $previousBalance = (float) (MonthlyCommission::query()
                     ->where('staff_id', $staff->id)
                     ->whereDate('month', '<', $start->toDateString())
@@ -1787,7 +1806,9 @@ class ReportService
                 $distributionRate = $distributionShare * 100;
                 $profitRate = $overallCommissionRate * $distributionShare;
                 $monthlyShare = $commissionPool * $distributionShare;
-                $paidAmount = (float) ($existingCommission?->paid_amount ?? 0);
+                $paidAmount = array_key_exists($staff->id, $paidOverrides)
+                    ? (float) $paidOverrides[$staff->id]
+                    : (float) ($existingCommission?->paid_amount ?? 0);
                 $totalPayable = $previousBalance + $monthlyShare;
                 $totalPaid = $advancePaid + $payoutPaid + $paidAmount;
                 $monthlyRemaining = $monthlyShare - $totalPaid;
