@@ -9,6 +9,7 @@ use App\Models\StaffTransaction;
 use App\Services\ReportService;
 use App\Support\StaffTransactionCreator;
 use Filament\Actions\Action;
+use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -210,6 +211,7 @@ class MonthlyCommissionsTable
                     })
                     ->successNotificationTitle('Commission payout recorded'),
                 ViewAction::make(),
+                EditAction::make(),
             ])
             ->toolbarActions([]);
     }

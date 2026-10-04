@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\MonthlyCommissions;
 
 use App\Filament\Concerns\AdminOnlyAccess;
+use App\Filament\Resources\MonthlyCommissions\Pages\EditMonthlyCommission;
 use App\Filament\Resources\MonthlyCommissions\Pages\ListMonthlyCommissions;
 use App\Filament\Resources\MonthlyCommissions\Pages\ViewMonthlyCommission;
 use App\Filament\Resources\MonthlyCommissions\Schemas\MonthlyCommissionForm;
@@ -65,6 +66,7 @@ class MonthlyCommissionResource extends Resource
         return [
             'index' => ListMonthlyCommissions::route('/'),
             'view' => ViewMonthlyCommission::route('/{record}'),
+            'edit' => EditMonthlyCommission::route('/{record}/edit'),
         ];
     }
 }

@@ -1818,13 +1818,13 @@ class GameBillingTest extends TestCase
             ->assertSee('Commission payments')
             ->assertSee('Printable monthly closing report')
             ->assertSee('Print closing report')
-            ->assertSee('Report snapshot')
+            ->assertDontSee('Report snapshot')
             ->assertSeeInOrder([
                 'Printable monthly closing report',
                 'Daily table sales, customer dues, and actual collection',
                 'Monthly totals below daily table',
                 'Staff-wise commission and total to be paid',
-                'Report snapshot',
+                'Month totals after expenses, rent, and commission',
             ])
             ->assertSee('Daily table sales, customer dues, and actual collection')
             ->assertSee('Monthly totals below daily table')

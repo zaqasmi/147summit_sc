@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\MonthlyCommissions\Pages;
 
 use App\Filament\Resources\MonthlyCommissions\MonthlyCommissionResource;
+use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewMonthlyCommission extends ViewRecord
@@ -11,6 +12,6 @@ class ViewMonthlyCommission extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [EditAction::make()];
     }
 }

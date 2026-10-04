@@ -5,6 +5,7 @@ namespace App\Filament\Resources\MonthlyCommissions\Pages;
 use App\Filament\Concerns\ShowsCashBankBalances;
 use App\Filament\Resources\MonthlyCommissions\MonthlyCommissionResource;
 use App\Filament\Resources\MonthlyCommissions\Widgets\StaffCommissionOverallSummary;
+use App\Filament\Resources\MonthlyCommissions\Widgets\StaffCommissionPaymentHistory;
 use App\Filament\Widgets\CashToDepositSummary;
 use App\Models\Staff;
 use App\Models\StaffTransaction;
@@ -129,6 +130,11 @@ class ListMonthlyCommissions extends ListRecords
             CashToDepositSummary::class,
             StaffCommissionOverallSummary::class,
         ];
+    }
+
+    protected function getFooterWidgets(): array
+    {
+        return [StaffCommissionPaymentHistory::class];
     }
 
     public function getHeaderWidgetsColumns(): int|array
