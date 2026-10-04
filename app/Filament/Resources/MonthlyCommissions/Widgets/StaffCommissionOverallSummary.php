@@ -4,6 +4,8 @@ namespace App\Filament\Resources\MonthlyCommissions\Widgets;
 
 use App\Filament\Resources\MonthlyCommissions\Pages\ListMonthlyCommissions;
 use App\Models\MonthlyCommission;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Widgets\Concerns\InteractsWithPageTable;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -22,6 +24,43 @@ class StaffCommissionOverallSummary extends StatsOverviewWidget
     protected ?string $description = 'Earned and paid totals follow the balance table filters. Remaining dues and advance credit use each staff member’s latest selected month so carried balances are counted once.';
 
     protected ?string $pollingInterval = null;
+
+    private ?Collection $commissionRecords = null;
+
+    public function content(Schema $schema): Schema
+    {
+        $staffStats = $this->staffRemainingStats();
+
+        return $schema->components([
+            $this->getSectionContentComponent(),
+            Section::make('Staff-wise remaining commission')
+                ->description('One balance for each staff member at their latest selected month. Overpayments appear as advance credit.')
+                ->schema($staffStats)
+                ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
+                ->contained(false)
+                ->gridContainer()
+                ->visible($staffStats !== []),
+        ]);
+    }
+
+    private function staffRemainingStats(): array
+    {
+        $records = $this->records();
+
+        return $records->sortByDesc('month')->unique('staff_id')
+            ->sortBy(fn (MonthlyCommission $record): string => $record->staff?->name ?? '')
+            ->map(function (MonthlyCommission $record) use ($records): Stat {
+                $balance = (float) $record->balance_due;
+                $paid = (float) $records->where('staff_id', $record->staff_id)
+                    ->sum(fn (MonthlyCommission $month): float => $month->total_paid);
+                $name = $record->staff?->name ?? 'Staff #'.$record->staff_id;
+
+                return Stat::make($name.($balance < 0 ? ' — advance credit' : ' — remaining due'), $this->money(abs($balance)))
+                    ->key('staff-remaining-'.$record->staff_id)
+                    ->description($record->month->format('M Y').' · Paid '.$this->money($paid).' in selected months')
+                    ->color($balance > 0 ? 'warning' : ($balance < 0 ? 'info' : 'success'));
+            })->values()->all();
+    }
 
     protected function getTablePage(): string
     {
@@ -71,7 +110,8 @@ class StaffCommissionOverallSummary extends StatsOverviewWidget
      */
     private function records(): Collection
     {
-        return $this->getPageTableQuery()
+        return $this->commissionRecords ??= $this->getPageTableQuery()
+            ->with('staff:id,name')
             ->get([
                 'id',
                 'staff_id',

@@ -32,6 +32,9 @@ class StaffCommissionStatsTest extends TestCase
             'Total commission paid to staff', 'Rs 1,340.00',
             'Total remaining to pay staff', 'Rs 100.00',
             'Advance credit carried forward', 'Rs 40.00',
+            'Staff-wise remaining commission',
+            'Overpaid staff — advance credit', 'Rs 40.00', 'Sep 2026', 'Paid Rs 140.00 in selected months',
+            'Staff with dues — remaining due', 'Rs 100.00', 'Paid Rs 1,200.00 in selected months',
         ]);
         Livewire::test(StaffCommissionOverallSummary::class, [
             'tableFilters' => ['month_filter' => ['value' => '9'], 'year' => ['value' => '2026']],
@@ -40,6 +43,9 @@ class StaffCommissionStatsTest extends TestCase
             'Total commission paid to staff', 'Rs 290.00',
             'Total remaining to pay staff', 'Rs 100.00',
             'Advance credit carried forward', 'Rs 40.00',
+            'Staff-wise remaining commission',
+            'Overpaid staff — advance credit', 'Rs 40.00',
+            'Staff with dues — remaining due', 'Rs 100.00', 'Paid Rs 150.00 in selected months',
         ]);
         Livewire::test(StaffCommissionOverallSummary::class, [
             'tableFilters' => ['staff_id' => ['value' => $staff->id], 'month_filter' => ['value' => '9']],
@@ -47,7 +53,12 @@ class StaffCommissionStatsTest extends TestCase
             'Total commission paid to staff', 'Rs 150.00',
             'Total remaining to pay staff', 'Rs 100.00',
             'Advance credit carried forward', 'Rs 0.00',
-        ]);
+            'Staff-wise remaining commission', 'Staff with dues — remaining due', 'Rs 100.00',
+        ])->assertDontSee('Overpaid staff — advance credit');
+        Livewire::test(StaffCommissionOverallSummary::class, [
+            'tableFilters' => ['month_filter' => ['value' => '7']],
+        ])->assertSeeInOrder(['Staff-wise remaining commission', 'Staff with dues — remaining due', 'Rs 800.00', 'Jul 2026'])
+            ->assertDontSee('Overpaid staff — advance credit');
         $this->travelBack();
     }
 
