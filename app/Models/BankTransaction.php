@@ -329,7 +329,7 @@ class BankTransaction extends Model
 
     public static function syncFromStaffTransaction(StaffTransaction $transaction): void
     {
-        if (! StaffTransaction::isBankPaidSource($transaction->paid_from) || (float) $transaction->amount <= 0) {
+        if ($transaction->monthly_commission_id || ! StaffTransaction::isBankPaidSource($transaction->paid_from) || (float) $transaction->amount <= 0) {
             self::deleteForSource(self::SOURCE_STAFF_TRANSACTION, $transaction->id);
 
             return;
@@ -453,7 +453,7 @@ class BankTransaction extends Model
         $cashStaffPayments = round((float) StaffTransaction::query()
             ->where('paid_from', 'cash')
             ->whereNull('cash_deposit_id')
-            ->whereIn('type', ['advance', 'payout'])
+            ->whereIn('type', ['advance', 'payout', 'salary'])
             ->whereDate('transaction_date', '<=', $asOfDate)
             ->sum('amount'), 2);
         $cashRentPayments = round((float) MonthlyClosing::query()

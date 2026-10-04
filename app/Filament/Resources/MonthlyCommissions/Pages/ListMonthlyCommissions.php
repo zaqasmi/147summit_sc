@@ -32,13 +32,16 @@ class ListMonthlyCommissions extends ListRecords
     {
         parent::mount();
 
-        app(ReportService::class)->generateMonthlyCommissions(today()->startOfMonth(), today());
+        if (MonthlyCommissionResource::canCreate()) {
+            app(ReportService::class)->generateMonthlyCommissions(today()->startOfMonth(), today());
+        }
     }
 
     protected function getHeaderActions(): array
     {
         return [
             Action::make('generateMonth')
+                ->authorize(fn (): bool => MonthlyCommissionResource::canCreate())
                 ->label('Generate month')
                 ->icon('heroicon-o-arrow-path')
                 ->color('gray')
@@ -56,6 +59,7 @@ class ListMonthlyCommissions extends ListRecords
                         ->required(),
                 ])
                 ->action(function (array $data): void {
+                    abort_unless(MonthlyCommissionResource::canCreate(), 403);
                     $records = app(ReportService::class)->generateMonthlyCommissions($data['month'], $data['period_end']);
 
                     Notification::make()
@@ -65,6 +69,7 @@ class ListMonthlyCommissions extends ListRecords
                         ->send();
                 }),
             Action::make('recordCommissionPayout')
+                ->authorize(fn (): bool => MonthlyCommissionResource::canCreate())
                 ->label('Record payout')
                 ->icon('heroicon-o-banknotes')
                 ->color('success')
@@ -108,6 +113,7 @@ class ListMonthlyCommissions extends ListRecords
                         ->default('Commission payout'),
                 ])
                 ->action(function (array $data): void {
+                    abort_unless(MonthlyCommissionResource::canCreate(), 403);
                     StaffTransactionCreator::create([
                         ...$data,
                         'type' => 'payout',
@@ -127,7 +133,7 @@ class ListMonthlyCommissions extends ListRecords
     protected function getHeaderWidgets(): array
     {
         return [
-            CashToDepositSummary::class,
+            ...(auth()->user()?->isAdmin() ? [CashToDepositSummary::class] : []),
             StaffCommissionOverallSummary::class,
         ];
     }

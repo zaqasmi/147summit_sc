@@ -39,6 +39,9 @@ class StaffTransactionsTable
                     ->date()
                     ->sortable(),
                 TextColumn::make('type')
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'closing_payment' => 'Monthly closing payment', 'salary' => 'Salary payment', default => ucfirst($state)
+                    })
                     ->badge()
                     ->searchable(),
                 TextColumn::make('paid_from_label')
@@ -72,6 +75,8 @@ class StaffTransactionsTable
                     ->options([
                         'advance' => 'Advance paid',
                         'payout' => 'Commission payout',
+                        'closing_payment' => 'Monthly closing payment',
+                        'salary' => 'Salary payment',
                         'adjustment' => 'Adjustment',
                     ]),
                 SelectFilter::make('paid_from')

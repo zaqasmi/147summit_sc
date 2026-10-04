@@ -18,6 +18,10 @@ class StaffTransactionCreator
 
         unset($data['split_between_all_staff']);
 
+        if ($splitBetweenAllStaff && ($data['type'] ?? null) === 'salary') {
+            throw ValidationException::withMessages(['staff_id' => 'Select one staff member for a salary payment.']);
+        }
+
         $transactionDate = Carbon::parse($data['transaction_date'] ?? today())->toDateString();
         $data['transaction_date'] = $transactionDate;
         $data['commission_month'] = filled($data['commission_month'] ?? null)

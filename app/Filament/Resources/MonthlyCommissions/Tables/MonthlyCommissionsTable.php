@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\MonthlyCommissions\Tables;
 
+use App\Filament\Resources\MonthlyCommissions\MonthlyCommissionResource;
 use App\Filament\Support\TableSummaries;
 use App\Models\MonthlyCommission;
 use App\Models\Staff;
@@ -168,6 +169,7 @@ class MonthlyCommissionsTable
             ])
             ->recordActions([
                 Action::make('recordPayout')
+                    ->authorize(fn (MonthlyCommission $record): bool => MonthlyCommissionResource::canEdit($record))
                     ->label('Pay')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
@@ -196,6 +198,7 @@ class MonthlyCommissionsTable
                             ->default('Commission payout'),
                     ])
                     ->action(function (MonthlyCommission $record, array $data): void {
+                        abort_unless(MonthlyCommissionResource::canEdit($record), 403);
                         StaffTransactionCreator::create([
                             'staff_id' => $record->staff_id,
                             'transaction_date' => $data['transaction_date'],
@@ -211,7 +214,7 @@ class MonthlyCommissionsTable
                     })
                     ->successNotificationTitle('Commission payout recorded'),
                 ViewAction::make(),
-                EditAction::make(),
+                EditAction::make()->authorize(fn (MonthlyCommission $record): bool => MonthlyCommissionResource::canEdit($record)),
             ])
             ->toolbarActions([]);
     }

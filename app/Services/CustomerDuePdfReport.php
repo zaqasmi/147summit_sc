@@ -15,11 +15,17 @@ class CustomerDuePdfReport
 
     private const ROW_HEIGHT = 20;
 
-    public function generate(): string
+    /**
+     * @param  Collection<int, CustomerDue>|null  $rows
+     */
+    public function generate(?Collection $rows = null): string
     {
-        $rows = CustomerDue::query()
-            ->orderBy('customer_name')
-            ->get();
+        $rows ??= CustomerDue::query()->get();
+        $rows = $rows->sort(function (CustomerDue $left, CustomerDue $right): int {
+            return ((float) $right->balance_due <=> (float) $left->balance_due)
+                ?: strcmp($left->customer_name, $right->customer_name)
+                ?: ($left->id <=> $right->id);
+        })->values();
 
         $pages = $this->buildPages($rows);
 

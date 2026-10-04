@@ -28,12 +28,46 @@ Use the normal incremental migration command above. Do not use `migrate:fresh`,
 `migrate:refresh`, or setup/demo seeders for this upgrade; they are not part of the
 live update. `SingleBankAccountSetupSeeder` reconciles fixed opening balances and
 must not be rerun as part of deployment. No account-creation or balance-reset seeder
-is required. The two new migrations add fields to the existing tables.
+is required. The incremental migrations add fields to the existing tables.
 
 After upgrading, confirm that pre-existing transaction IDs are unchanged, existing
 bank transactions show RF Account, and Saving Account starts at zero until a
 transaction is explicitly assigned to it. Past commission payments with no recorded
 payment source retain that unknown source until the closing is edited.
+
+## Synchronized staff commission payments
+
+Run `php artisan migrate --force` after deploying the synchronization update.
+The migration adds `staff_transactions.monthly_commission_id` and backfills one
+linked transaction for each existing positive closing payment. Existing staff
+transaction and bank ledger IDs are preserved; no seeders are needed.
+
+Advances and payouts entered in Staff Transactions refresh their assigned commission
+month. A closing payment entered through Monthly Closing or Staff Commission
+Balances appears in Staff Transactions as **Monthly closing payment**. Editing its
+amount, source, or payment date updates the same closing payment and recalculates
+later balances. Deleting the linked transaction clears that closing payment.
+
+Linked closing payments stay assigned to their original staff member and commission
+month. Their bank ledger remains attached to the existing monthly commission ID;
+they are excluded from advance/payout deductions so cash, bank balances, commission
+payments, and payment history count the payment once. Historical payments with no
+recorded account show **Not recorded**; historical payments without a payment date
+use the end of their commission month for the linked transaction.
+
+## Salary payments for other staff
+
+Choose **Salary payment** in Staff Transactions and select the staff member,
+payment date, salary month, amount, and collection cash/RF Account/Saving Account.
+All active staff are selectable; salary payments are recorded individually.
+
+Salary payments are owner-paid withdrawals, excluded from business expenses and
+commission calculations. Cash salaries reduce cash to deposit once; bank salaries
+debit the selected RF or Saving Account once. Edit or delete them in Staff Transactions.
+
+Deploy the code and run `php artisan migrate --force`. The correction migration removes
+previously generated salary expenses and refreshes affected commission balances,
+while retaining existing staff payment and bank transaction IDs.
 
 ## About Laravel
 

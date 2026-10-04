@@ -26,6 +26,8 @@ class CashToDepositSummary extends StatsOverviewWidget
 
     protected function getStats(): array
     {
+        abort_unless(static::canView(), 403);
+
         $summary = BankTransaction::summary();
         $money = fn ($value): string => 'Rs '.number_format((float) $value, 2);
 

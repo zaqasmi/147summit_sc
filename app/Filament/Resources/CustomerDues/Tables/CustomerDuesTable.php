@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\CustomerDues\Tables;
 
 use App\Filament\Support\TableSummaries;
+use App\Services\CustomerDuePdfReport;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -10,6 +12,8 @@ use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CustomerDuesTable
 {
@@ -68,9 +72,25 @@ class CustomerDuesTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ])
-                    ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
+                    BulkAction::make('exportPdf')
+                        ->label('Export selected dues PDF')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->visible(fn (): bool => auth()->user()?->canViewCustomerDues() ?? false)
+                        ->action(function (Collection $records): StreamedResponse {
+                            abort_unless(auth()->user()?->canViewCustomerDues(), 403);
+
+                            $pdf = app(CustomerDuePdfReport::class)->generate($records);
+
+                            return response()->streamDownload(
+                                fn () => print ($pdf),
+                                'customer-dues-selected-'.now()->format('Y-m-d').'.pdf',
+                                ['Content-Type' => 'application/pdf'],
+                            );
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    DeleteBulkAction::make()
+                        ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
+                ]),
             ]);
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\MonthlyCommissions\Widgets;
 
+use App\Filament\Resources\MonthlyCommissions\MonthlyCommissionResource;
 use App\Models\Staff;
 use App\Models\StaffCommissionPayment;
 use App\Models\StaffTransaction;
@@ -24,7 +25,7 @@ class StaffCommissionPaymentHistory extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return MonthlyCommissionResource::canViewAny();
     }
 
     #[On('cash-bank-balances-updated')]

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class MonthlyCommission extends Model
 {
@@ -62,8 +63,37 @@ class MonthlyCommission extends Model
                 $commission->paid_on = today();
             }
         });
-        static::saved(fn (MonthlyCommission $commission) => BankTransaction::syncFromMonthlyCommission($commission));
+        static::saved(function (MonthlyCommission $commission): void {
+            BankTransaction::syncFromMonthlyCommission($commission);
+            $commission->syncStaffPayment();
+        });
         static::deleted(fn (MonthlyCommission $commission) => BankTransaction::deleteForSource(BankTransaction::SOURCE_MONTHLY_COMMISSION, $commission->id));
+    }
+
+    public function staffPayment(): HasOne
+    {
+        return $this->hasOne(StaffTransaction::class, 'monthly_commission_id');
+    }
+
+    public function syncStaffPayment(): void
+    {
+        StaffTransaction::withoutEvents(function (): void {
+            if ((float) $this->paid_amount <= 0) {
+                $this->staffPayment()->delete();
+
+                return;
+            }
+
+            StaffTransaction::query()->updateOrCreate(['monthly_commission_id' => $this->id], [
+                'staff_id' => $this->staff_id,
+                'commission_month' => $this->month->copy()->startOfMonth()->toDateString(),
+                'transaction_date' => $this->paid_on ?: $this->month->copy()->endOfMonth(),
+                'type' => 'closing_payment',
+                'paid_from' => $this->paid_from ?: 'unrecorded',
+                'amount' => $this->paid_amount,
+                'description' => $this->notes ?: 'Monthly closing commission payment',
+            ]);
+        });
     }
 
     public function getPaidFromLabelAttribute(): string

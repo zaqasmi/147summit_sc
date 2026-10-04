@@ -407,6 +407,7 @@ class ReportService
             $overallCommissionRate,
             $monthlyClosingOverride['commission_paid_overrides'] ?? [],
         );
+        $commissionPool = $commissionEstimate;
         $staffShareRows = collect($staffShares);
         $commissionEstimate = (float) $staffShareRows->sum('monthly_share');
         $staffAdvanceCarryIn = $this->staffAdvanceCarryIntoMonth($start);
@@ -460,6 +461,7 @@ class ReportService
             'commission_rate' => $overallCommissionRate,
             'overall_commission_rate' => $overallCommissionRate,
             'commission_estimate' => $commissionEstimate,
+            'commission_pool' => $commissionPool,
             'staff_advance_carry_in' => $staffAdvanceCarryIn,
             'staff_advance_carry_forward' => $staffAdvanceCarryForward,
             'staff_distribution_to_be_paid' => $staffDistributionToBePaid,

@@ -12,6 +12,6 @@ class ViewMonthlyCommission extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [EditAction::make()];
+        return [EditAction::make()->authorize(fn (): bool => MonthlyCommissionResource::canEdit($this->getRecord()))];
     }
 }

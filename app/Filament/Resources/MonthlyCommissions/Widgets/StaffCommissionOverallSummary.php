@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\MonthlyCommissions\Widgets;
 
+use App\Filament\Resources\MonthlyCommissions\MonthlyCommissionResource;
 use App\Filament\Resources\MonthlyCommissions\Pages\ListMonthlyCommissions;
 use App\Models\MonthlyCommission;
 use Filament\Schemas\Components\Section;
@@ -26,6 +27,11 @@ class StaffCommissionOverallSummary extends StatsOverviewWidget
     protected ?string $pollingInterval = null;
 
     private ?Collection $commissionRecords = null;
+
+    public static function canView(): bool
+    {
+        return MonthlyCommissionResource::canViewAny();
+    }
 
     public function content(Schema $schema): Schema
     {

@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\MonthlyCommissions;
 
-use App\Filament\Concerns\AdminOnlyAccess;
 use App\Filament\Resources\MonthlyCommissions\Pages\EditMonthlyCommission;
 use App\Filament\Resources\MonthlyCommissions\Pages\ListMonthlyCommissions;
 use App\Filament\Resources\MonthlyCommissions\Pages\ViewMonthlyCommission;
@@ -15,11 +14,10 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class MonthlyCommissionResource extends Resource
 {
-    use AdminOnlyAccess;
-
     protected static ?string $model = MonthlyCommission::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedReceiptPercent;
@@ -33,6 +31,41 @@ class MonthlyCommissionResource extends Resource
     protected static string|\UnitEnum|null $navigationGroup = 'Admin';
 
     protected static ?int $navigationSort = 7;
+
+    public static function canAccess(): bool
+    {
+        return auth()->check();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccess();
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return static::canAccess();
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return static::canCreate();
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::canCreate();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return static::canCreate();
+    }
 
     public static function shouldRegisterNavigation(): bool
     {
