@@ -19,7 +19,7 @@ class StaffCommissionOverallSummary extends StatsOverviewWidget
 
     protected ?string $heading = 'Overall staff commission';
 
-    protected ?string $description = 'Totals for the filtered staff commission report. The table below bifurcates these amounts staff-wise.';
+    protected ?string $description = 'Earned and paid totals follow the balance table filters. Remaining dues and advance credit use each staff member’s latest selected month so carried balances are counted once.';
 
     protected ?string $pollingInterval = null;
 
@@ -36,8 +36,10 @@ class StaffCommissionOverallSummary extends StatsOverviewWidget
         $manualPaid = $this->sum($records, 'paid_amount');
         $totalPaid = round($ledgerPaid + $manualPaid, 2);
         $monthlyRemaining = round($commissionEarned - $totalPaid, 2);
-        $previousBalance = $this->sum($records, 'carried_forward_from_previous');
-        $overallRemaining = $this->sum($records, 'balance_due');
+        $latestBalances = $records->sortByDesc('month')->unique('staff_id');
+        $previousBalance = $this->sum($latestBalances, 'carried_forward_from_previous');
+        $remainingDue = round((float) $latestBalances->sum(fn (MonthlyCommission $record): float => max(0, (float) $record->balance_due)), 2);
+        $advanceCredit = round((float) $latestBalances->sum(fn (MonthlyCommission $record): float => max(0, -(float) $record->balance_due)), 2);
 
         return [
             Stat::make('Records', number_format($records->count()))
@@ -46,18 +48,21 @@ class StaffCommissionOverallSummary extends StatsOverviewWidget
             Stat::make('Commission earned', $this->money($commissionEarned))
                 ->description('Total monthly commission')
                 ->color('info'),
-            Stat::make('Paid against month', $this->money($totalPaid))
-                ->description('Advances + payouts')
+            Stat::make('Total commission paid to staff', $this->money($totalPaid))
+                ->description('Advances + payouts + closing payments')
                 ->color($totalPaid > 0 ? 'success' : 'gray'),
             Stat::make('Monthly remaining', $this->money($monthlyRemaining))
-                ->description('Commission earned - paid')
+                ->description('Earned minus paid in filtered months')
                 ->color($monthlyRemaining > 0 ? 'warning' : 'success'),
             Stat::make('Previous balance', $this->money($previousBalance))
-                ->description('Balance brought forward')
+                ->description('Before each staff member’s latest selected month')
                 ->color($previousBalance > 0 ? 'warning' : 'gray'),
-            Stat::make('Overall remaining', $this->money($overallRemaining))
-                ->description('Previous balance + earned - paid')
-                ->color($overallRemaining > 0 ? 'warning' : 'success'),
+            Stat::make('Total remaining to pay staff', $this->money($remainingDue))
+                ->description('Unpaid dues at each staff member’s latest selected month')
+                ->color($remainingDue > 0 ? 'warning' : 'success'),
+            Stat::make('Advance credit carried forward', $this->money($advanceCredit))
+                ->description('Overpayments shown separately from other staff dues')
+                ->color($advanceCredit > 0 ? 'info' : 'gray'),
         ];
     }
 
@@ -69,6 +74,8 @@ class StaffCommissionOverallSummary extends StatsOverviewWidget
         return $this->getPageTableQuery()
             ->get([
                 'id',
+                'staff_id',
+                'month',
                 'commission_amount',
                 'advances_deducted',
                 'paid_amount',
