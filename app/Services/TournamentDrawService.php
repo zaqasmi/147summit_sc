@@ -41,9 +41,7 @@ class TournamentDrawService
             ]);
         }
         $slots = $this->seedSlots($players, $bracketSize);
-        if ($selectedIds !== []) {
-            $slots = $this->separateSelectedPlayers($slots, $selectedIds);
-        }
+        $slots = $this->separateSelectedPlayers($slots, $selectedIds);
 
         DB::transaction(function () use ($tournament, $bracketSize, $slots): void {
             $tournament->matches()->delete();
@@ -101,8 +99,80 @@ class TournamentDrawService
 
             $tournament->update([
                 'draw_generated_at' => now(),
+                'last_drawn_round' => 1,
                 'status' => 'ongoing',
             ]);
+        });
+    }
+
+    public function generateNextRound(Tournament $tournament): int
+    {
+        return DB::transaction(function () use ($tournament): int {
+            $tournament = Tournament::query()->whereKey($tournament->id)->lockForUpdate()->firstOrFail();
+            if ($tournament->type !== 'knockout') {
+                throw ValidationException::withMessages(['matches' => 'Next-round draws are available for knockout tournaments only.']);
+            }
+            $matches = $tournament->matches()->withCount('frames')->orderBy('round_number')->lockForUpdate()->get();
+            if ($matches->isEmpty()) {
+                throw ValidationException::withMessages(['matches' => 'Generate the first-round draw before drawing the next round.']);
+            }
+
+            // Existing tournaments may already have played rounds from their original bracket.
+            $playedRound = (int) $matches->filter(fn (TournamentMatch $match): bool => $match->winner_id || $match->frames_count > 0 || $match->started_at
+                || $match->player1_frames > 0 || $match->player2_frames > 0
+                || in_array($match->status, ['ongoing', 'completed', 'walkover'], true)
+            )->max('round_number');
+            $currentRound = max(1, (int) $tournament->last_drawn_round, $playedRound);
+            $current = $matches->where('round_number', $currentRound);
+            if ($current->isEmpty() || $current->contains(fn (TournamentMatch $match): bool => ! $match->isComplete() || ! in_array($match->winner_id, [$match->player1_id, $match->player2_id], true)
+            )) {
+                throw ValidationException::withMessages(['matches' => 'Complete every match in round '.$currentRound.' and record its winner before drawing the next round.']);
+            }
+            $winnerIds = $current->pluck('winner_id');
+            if ($winnerIds->unique()->count() !== $current->count()
+                || $tournament->players()->whereIn('id', $winnerIds)->count() !== $current->count()) {
+                throw ValidationException::withMessages(['matches' => 'Each completed match must have a different winner registered in this tournament.']);
+            }
+            if ($winnerIds->count() < 2) {
+                throw ValidationException::withMessages(['matches' => 'The final is complete. There is no further round to draw.']);
+            }
+
+            $winners = $winnerIds->shuffle()->values();
+            if ($winners->count() % 2 !== 0) {
+                // Prefer a player who has not already received a bye.
+                $priorByes = $matches->where('notes', 'BYE')->pluck('winner_id');
+                $bye = $winners->first(fn ($id): bool => ! $priorByes->contains($id)) ?? $winners->last();
+                $winners = $winners->reject(fn ($id): bool => $id === $bye)->values()->push($bye);
+            }
+
+            $nextRound = $currentRound + 1;
+            // Replace only unplayed future bracket slots. Earlier results and frames remain intact.
+            $tournament->matches()->where('round_number', '>', $currentRound)->delete();
+            $tournament->matches()->where('round_number', $currentRound)->update(['next_match_id' => null, 'next_match_slot' => null]);
+            $matchCount = (int) ceil($winners->count() / 2);
+            $roundName = match ($matchCount) {
+                1 => 'Final', 2 => 'Semi Final', 4 => 'Quarter Final',
+                8 => 'Round of 16', 16 => 'Round of 32', default => 'Round '.$nextRound,
+            };
+            foreach ($winners->chunk(2)->values() as $index => $pair) {
+                $ids = $pair->values();
+                $bye = $ids->count() === 1;
+                $match = TournamentMatch::create([
+                    'tournament_id' => $tournament->id, 'round_number' => $nextRound,
+                    'round_name' => $roundName, 'match_number' => $index + 1,
+                    'player1_id' => $ids[0], 'player2_id' => $ids->get(1),
+                    'match_format' => $tournament->match_format,
+                    'winner_id' => $bye ? $ids[0] : null,
+                    'status' => $bye ? 'completed' : 'scheduled', 'notes' => $bye ? 'BYE' : null,
+                ]);
+                foreach ($ids as $slot => $winnerId) {
+                    $previous = $current->firstWhere('winner_id', $winnerId);
+                    $previous->updateQuietly(['next_match_id' => $match->id, 'next_match_slot' => $slot === 0 ? 'player1' : 'player2']);
+                }
+            }
+            $tournament->update(['last_drawn_round' => $nextRound, 'status' => 'ongoing']);
+
+            return $nextRound;
         });
     }
 

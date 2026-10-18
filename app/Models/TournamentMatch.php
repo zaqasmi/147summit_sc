@@ -123,7 +123,7 @@ class TournamentMatch extends Model
 
     public function isComplete(): bool
     {
-        return $this->status === 'completed' && filled($this->winner_id);
+        return in_array($this->status, ['completed', 'walkover'], true) && filled($this->winner_id);
     }
 
     public static function statusOptions(): array

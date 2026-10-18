@@ -82,6 +82,23 @@ After deploying, run `php artisan migrate --force` before using this module.
 The migration creates `tournament_draw_settings` without changing existing player
 or match IDs. Then run `php artisan optimize:clear` to clear cached application data.
 
+## Draw each next tournament round
+
+After every match in a round has a winner, use **Generate next round draw** in
+Tournaments or Tournament Matches. Winners are shuffled into the next round;
+walkover winners qualify too. An odd number of winners creates one completed
+BYE match, preferring a player who has not previously received a bye. Continue
+through the semi-final and final. The player-separation setting applies only to
+the initial draw.
+
+Completed matches and frames are preserved. Unplayed future bracket slots are
+replaced, and generating again is blocked until the new round is complete.
+Existing tournaments with later-round results continue from their latest played
+round. Each successful draw opens matches filtered to the tournament.
+
+Deploy and run `php artisan migrate --force` and `php artisan optimize:clear`.
+The migration adds `tournaments.last_drawn_round`; it preserves existing matches.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

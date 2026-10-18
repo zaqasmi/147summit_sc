@@ -25,6 +25,7 @@ class Tournament extends Model
         'match_format',
         'status',
         'draw_generated_at',
+        'last_drawn_round',
         'prize_notes',
         'is_featured',
         'is_published',
@@ -46,6 +47,7 @@ class Tournament extends Model
             'registration_closes_at' => 'datetime',
             'registration_fee' => 'decimal:2',
             'draw_generated_at' => 'datetime',
+            'last_drawn_round' => 'integer',
             'is_featured' => 'boolean',
             'is_published' => 'boolean',
         ];

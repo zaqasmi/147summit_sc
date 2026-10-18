@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Tournaments\Tables;
 
+use App\Filament\Actions\GenerateNextTournamentRound;
 use App\Filament\Resources\TournamentDrawSettings\TournamentDrawSettingResource;
 use App\Filament\Resources\TournamentMatches\TournamentMatchResource;
 use App\Filament\Support\TableSummaries;
@@ -126,6 +127,7 @@ class TournamentsTable
                                 ->send();
                         }
                     }),
+                GenerateNextTournamentRound::make(fromTournament: true),
                 ViewAction::make(),
                 EditAction::make(),
             ])
