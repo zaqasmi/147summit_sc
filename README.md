@@ -69,6 +69,19 @@ Deploy the code and run `php artisan migrate --force`. The correction migration 
 previously generated salary expenses and refreshes affected commission balances,
 while retaining existing staff payment and bank transaction IDs.
 
+## Tournament draw settings
+
+Open **Tournament Management → Draw Settings** (or the tournament's **Draw settings**
+action), select a knockout tournament and the registered players to keep apart,
+then save. The selected players cannot meet in the first-round draw. This rule
+can move seeded players; later rounds follow match winners. An impossible selection
+blocks generation and preserves the existing draw. Successful generation opens
+Tournament Matches filtered to the tournament.
+
+After deploying, run `php artisan migrate --force` before using this module.
+The migration creates `tournament_draw_settings` without changing existing player
+or match IDs. Then run `php artisan optimize:clear` to clear cached application data.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

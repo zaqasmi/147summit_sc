@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Tournament;
+use App\Models\TournamentDrawSetting;
 use App\Models\TournamentMatch;
 use App\Models\TournamentPlayer;
 use Illuminate\Support\Collection;
@@ -31,12 +32,23 @@ class TournamentDrawService
             ]);
         }
 
-        DB::transaction(function () use ($tournament, $players): void {
+        $bracketSize = $this->nextPowerOfTwo($players->count());
+        $selectedIds = TournamentDrawSetting::query()->where('tournament_id', $tournament->id)->first()?->separated_player_ids ?? [];
+        $selectedIds = $players->whereIn('id', $selectedIds)->pluck('id')->all();
+        if (count($selectedIds) > $bracketSize / 2) {
+            throw ValidationException::withMessages([
+                'players' => 'The selected players cannot all be kept apart. Select at most '.($bracketSize / 2).' players for this first-round bracket, or register more players.',
+            ]);
+        }
+        $slots = $this->seedSlots($players, $bracketSize);
+        if ($selectedIds !== []) {
+            $slots = $this->separateSelectedPlayers($slots, $selectedIds);
+        }
+
+        DB::transaction(function () use ($tournament, $bracketSize, $slots): void {
             $tournament->matches()->delete();
 
-            $bracketSize = $this->nextPowerOfTwo($players->count());
             $totalRounds = (int) log($bracketSize, 2);
-            $slots = $this->seedSlots($players, $bracketSize);
             $roundMatches = [];
 
             for ($round = 1; $round <= $totalRounds; $round++) {
@@ -92,6 +104,43 @@ class TournamentDrawService
                 'status' => 'ongoing',
             ]);
         });
+    }
+
+    /**
+     * @param  array<int, TournamentPlayer|null>  $slots
+     * @param  array<int, int>  $selectedIds
+     * @return array<int, TournamentPlayer|null>
+     */
+    private function separateSelectedPlayers(array $slots, array $selectedIds): array
+    {
+        // Fill empty matches first so every bye advances into a playable bracket.
+        for ($index = 0; $index < count($slots); $index += 2) {
+            if ($slots[$index] || $slots[$index + 1]) {
+                continue;
+            }
+            for ($donor = 0; $donor < count($slots); $donor += 2) {
+                if ($slots[$donor] && $slots[$donor + 1]) {
+                    $slots[$index] = $slots[$donor + 1];
+                    $slots[$donor + 1] = null;
+                    break;
+                }
+            }
+        }
+
+        $selected = fn (?TournamentPlayer $player): bool => $player && in_array($player->id, $selectedIds, true);
+        for ($index = 0; $index < count($slots); $index += 2) {
+            if (! $selected($slots[$index]) || ! $selected($slots[$index + 1])) {
+                continue;
+            }
+            for ($other = 0; $other < count($slots); $other += 2) {
+                if (! $selected($slots[$other]) && ! $selected($slots[$other + 1])) {
+                    [$slots[$index + 1], $slots[$other]] = [$slots[$other], $slots[$index + 1]];
+                    break;
+                }
+            }
+        }
+
+        return $slots;
     }
 
     /**

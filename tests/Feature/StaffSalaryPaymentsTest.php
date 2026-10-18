@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\StaffTransactions\Pages\CreateStaffTransaction;
 use App\Filament\Resources\StaffTransactions\Pages\EditStaffTransaction;
+use App\Filament\Resources\StaffTransactions\Pages\ListStaffTransactions;
 use App\Models\BankTransaction;
 use App\Models\CashDeposit;
 use App\Models\Expense;
@@ -35,11 +36,17 @@ class StaffSalaryPaymentsTest extends TestCase
             'manual_table_1_sale' => 1000, 'amount_collected_from_staff' => 1000,
         ]);
         app(ReportService::class)->generateMonthlyCommission($commissionStaff, '2026-08-01');
-        Livewire::test(CreateStaffTransaction::class)->fillForm([
-            'staff_id' => $salaryStaff->id, 'transaction_date' => '2026-08-01', 'commission_month' => '2026-08-01',
-            'type' => 'salary', 'paid_from' => 'cash', 'amount' => 100, 'description' => 'August salary',
-        ])->call('create')->assertHasNoFormErrors();
+        Livewire::test(CreateStaffTransaction::class)
+            ->assertFormFieldExists('type', fn ($field): bool => ($field->getOptions()['salary'] ?? null) === 'Salary payment')
+            ->fillForm([
+                'staff_id' => $salaryStaff->id, 'transaction_date' => '2026-08-01', 'commission_month' => '2026-08-01',
+                'type' => 'salary', 'paid_from' => 'cash', 'amount' => 100, 'description' => 'August salary',
+            ])->call('create')->assertHasNoFormErrors();
         $salary = StaffTransaction::where('type', 'salary')->firstOrFail();
+        Livewire::test(ListStaffTransactions::class)
+            ->assertCanSeeTableRecords([$salary])
+            ->filterTable('type', 'salary')
+            ->assertCanSeeTableRecords([$salary]);
         $this->assertSame(0, Expense::count());
         $this->assertSame(900.0, BankTransaction::summary()['collection_cash_pending_deposit']);
         $this->assertSame(0.0, BankTransaction::summary()['cash_expenses_pending_deduction']);

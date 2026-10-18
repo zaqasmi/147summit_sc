@@ -2,8 +2,11 @@
 
 namespace App\Filament\Resources\Tournaments\Tables;
 
+use App\Filament\Resources\TournamentDrawSettings\TournamentDrawSettingResource;
+use App\Filament\Resources\TournamentMatches\TournamentMatchResource;
 use App\Filament\Support\TableSummaries;
 use App\Models\Tournament;
+use App\Models\TournamentDrawSetting;
 use App\Services\TournamentDrawService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -86,13 +89,24 @@ class TournamentsTable
                     ->options(Tournament::typeOptions()),
             ])
             ->recordActions([
+                Action::make('drawSettings')
+                    ->label('Draw settings')
+                    ->icon('heroicon-o-adjustments-horizontal')
+                    ->visible(fn (Tournament $record): bool => $record->type === 'knockout')
+                    ->url(function (Tournament $record): string {
+                        $setting = TournamentDrawSetting::query()->where('tournament_id', $record->id)->first();
+
+                        return $setting
+                            ? TournamentDrawSettingResource::getUrl('edit', ['record' => $setting])
+                            : TournamentDrawSettingResource::getUrl('create', ['tournament_id' => $record->id]);
+                    }),
                 Action::make('generateDraw')
                     ->label('Generate draw')
                     ->icon('heroicon-o-sparkles')
                     ->color('success')
                     ->requiresConfirmation()
                     ->visible(fn (Tournament $record): bool => $record->type === 'knockout')
-                    ->action(function (Tournament $record): void {
+                    ->action(function (Tournament $record, $livewire): void {
                         try {
                             app(TournamentDrawService::class)->generateKnockout($record);
 
@@ -100,6 +114,10 @@ class TournamentsTable
                                 ->title('Tournament draw generated')
                                 ->success()
                                 ->send();
+
+                            $livewire->redirect(TournamentMatchResource::getUrl('index', [
+                                'filters' => ['tournament_id' => ['value' => $record->id]],
+                            ]));
                         } catch (ValidationException $exception) {
                             Notification::make()
                                 ->title('Draw could not be generated')
